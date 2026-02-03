@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal OS v3.5 (Interactive AI Schedule)</title>
+    
+    <!-- 1. 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. 引入 React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 3. 引入 Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 4. 引入 Firebase (Compat 版本) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-gray-900 overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- 1. Icon 元件 ---
+        const Icon = ({ path, className, size = 24, fill = "none", strokeWidth = 2 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+
+        // Icons Definition
+        const Home = (p) => <Icon {...p} path={<><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>} />;
+        const Train = (p) => <Icon {...p} path={<><rect width="16" height="16" x="4" y="4" rx="2"/><path d="M4 10h16"/><path d="M12 4v8"/><path d="m8 22 1-3"/><path d="m15 19 1 3"/></>} />;
+        const CalendarIcon = (p) => <Icon {...p} path={<><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>} />;
+        const DollarSign = (p) => <Icon {...p} path={<><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>} />;
+        const PieChart = (p) => <Icon {...p} path={<><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></>} />;
+        const CheckSquare = (p) => <Icon {...p} path={<><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>} />;
+        const BookOpen = (p) => <Icon {...p} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />;
+        const Briefcase = (p) => <Icon {...p} path={<><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>} />;
+        const MapPin = (p) => <Icon {...p} path={<><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></>} />;
+        const LogOut = (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></>} />;
+        const Plus = (p) => <Icon {...p} path={<><path d="M5 12h14"/><path d="M12 5v14"/></>} />;
+        const Trash2 = (p) => <Icon {...p} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>} />;
+        const CheckCircle2 = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>} />;
+        const X = (p) => <Icon {...p} path={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />;
+        const Settings = (p) => <Icon {...p} path={<><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.18-.08a2 2 0 0 0-2 0l-.45.26a2 2 0 0 0-.79 2.85l.18.31a2 2 0 0 1 0 2.36l-.18.31a2 2 0 0 0 .79 2.85l.45.26a2 2 0 0 0 2 0l.18-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.18.08a2 2 0 0 0 2 0l.45-.26a2 2 0 0 0 .79-2.85l-.18-.31a2 2 0 0 1 0-2.36l.18-.31a2 2 0 0 0-.79-2.85l-.45-.26a2 2 0 0 0-2 0l-.18.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>} />;
+        const Loader2 = (p) => <Icon {...p} className={`${p.className} animate-spin`} path={<><path d="M21 12a9 9 0 1 1-6.219-8.56"/></>} />;
+        const Sun = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>} />;
+        const Navigation = (p) => <Icon {...p} path={<><polygon points="3 11 22 2 13 21 11 13 3 11"/></>} />;
+        const LinkIcon = (p) => <Icon {...p} path={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>} />;
+        const Camera = (p) => <Icon {...p} path={<><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></>} />;
+        const UtensilsCrossed = (p) => <Icon {...p} path={<><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"/><path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"/><path d="m2.1 21.8 6.4-6.3"/><path d="m19 5-7 7"/></>} />;
+        const Sparkles = (p) => <Icon {...p} path={<><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 5h4"/><path d="M3 9h4"/></>} />;
+        const Zap = (p) => <Icon {...p} path={<><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>} />;
+        const MessageSquareQuote = (p) => <Icon {...p} path={<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 12a2 2 0 0 0 2-2V8H8"/><path d="M14 12a2 2 0 0 0 2-2V8h-2"/></>} />;
+        const Wand2 = (p) => <Icon {...p} path={<><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></>} />;
+        const CloudLightning = (p) => <Icon {...p} path={<><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></>} />;
+        const Clock = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />;
+        const ListFilter = (p) => <Icon {...p} path={<><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></>} />;
+        const AlertCircle = (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>} />;
+        const Palmtree = (p) => <Icon {...p} path={<><path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/><path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/><path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.71 1.41 1.41-.7.7-4.24 4.24c1.96 1.96 5.28 1.81 7.43-.35"/><path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/></>} />;
+        const Users = (p) => <Icon {...p} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />;
+        const BrainCircuit = (p) => <Icon {...p} path={<><path d="M21 8.8c.5.3 1 .9 1 1.6 0 1.2-1.2 2.3-2.7 2.3-1.1 0-2.1-.6-2.5-1.5"/><path d="M17.5 16.1c.3.9 1.1 1.5 2 1.5 1.5 0 2.7-1.1 2.7-2.6 0-.7-.3-1.3-.8-1.7"/><path d="M16 12h.01"/><path d="M8 12h.01"/><path d="M12 16h.01"/><path d="M12 8h.01"/><path d="M3 8.8c-.5.3-1 .9-1 1.6 0 1.2 1.2 2.3 2.7 2.3 1.1 0 2.1-.6 2.5-1.5"/><path d="M6.5 16.1c-.3.9-1.1 1.5-2 1.5-1.5 0-2.7-1.1-2.7-2.6 0-.7.3-1.3.8-1.7"/><path d="M12 2a8 8 0 0 0-8 8v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1a8 8 0 0 0-8-8z"/></>} />;
+
+        // --- 全域預設值 ---
+        const DEFAULT_APP_ID = 'personal-assistant-app';
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyA1Yb1o-ZNALFNpA_z9srmu19Bt84vdMTg",
+            authDomain: "work-new-82d8f.firebaseapp.com",
+            projectId: "work-new-82d8f",
+            storageBucket: "work-new-82d8f.firebasestorage.app",
+            messagingSenderId: "410077962391",
+            appId: "1:410077962391:web:8f4d73500abd9e678c49d2",
+            measurementId: "G-XZESRGJ631"
+        };
+
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/19h__CkuFWbXWjzY3KiJ2D4sqGtwEc9fNB6XCrweDrc4/export?format=csv";
+
+        // --- 假日與顏色資料 ---
+        const HOLIDAYS = {
+          '2026-01-01': '元旦', '2026-02-16': '除夕', '2026-02-17': '春節', '2026-02-18': '初二',
+          '2026-02-19': '初三', '2026-02-20': '初四', '2026-02-21': '初五', '2026-02-28': '二二八',
+          '2026-04-03': '兒童節(補)', '2026-04-04': '兒童節', '2026-04-05': '清明節', '2026-04-06': '清明補假',
+          '2026-06-19': '端午節', '2026-09-25': '中秋節', '2026-10-10': '國慶日',
+        };
+        const DEFAULT_AREA_COLORS = {
+          '高雄': 'bg-red-500', '澎湖': 'bg-orange-500', '台東': 'bg-green-500', '屏東': 'bg-yellow-500',
+          '就業通': 'bg-blue-400', '訓就': 'bg-purple-400', '分署': 'bg-slate-400',
+        };
+
+        const PRIORITIES = {
+            'urgent_important': { label: '重要且緊急', color: 'bg-red-100 text-red-800 border-red-200', icon: '🔥' },
+            'not_urgent_important': { label: '重要不緊急', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: '⭐' },
+            'urgent_not_important': { label: '緊急不重要', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: '⚡' },
+            'not_urgent_not_important': { label: '不急不重要', color: 'bg-gray-100 text-gray-600 border-gray-200', icon: '☕' }
+        };
+
+        const formatDate = (date) => {
+            if (!date) return '';
+            const d = new Date(date);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+
+        const getTimeSlot = () => {
+            const hour = new Date().getHours();
+            if (hour >= 5 && hour < 11) return '早餐';
+            if (hour >= 11 && hour < 17) return '午餐';
+            if (hour >= 17 && hour < 24) return '晚餐';
+            return '宵夜/其他';
+        };
+
+        const callGemini = async (apiKey, prompt, systemInstruction = "你是一個專業的個人助理", imageData = null) => {
+            if (!apiKey) return "API Key 未設定";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const parts = [{ text: prompt }];
+            if (imageData) parts.push({ inlineData: { mimeType: "image/png", data: imageData.split(',')[1] } });
+            
+            const payload = {
+                contents: [{ parts }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                generationConfig: imageData ? { responseMimeType: "application/json" } : {}
+            };
+
+            try {
+                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message);
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法獲取建議";
+            } catch (e) { 
+                console.error(e);
+                return null; 
+            }
+        };
+
+        const parseCSV = (str) => {
+            const arr = [];
+            let quote = false;
+            for (let row = 0, col = 0, c = 0; c < str.length; c++) {
+                let cc = str[c], nc = str[c + 1];
+                arr[row] = arr[row] || [];
+                arr[row][col] = arr[row][col] || '';
+                if (cc == '"' && quote && nc == '"') { arr[row][col] += cc; ++c; continue; }
+                if (cc == '"') { quote = !quote; continue; }
+                if (cc == ',' && !quote) { ++col; continue; }
+                if (cc == '\r' && nc == '\n' && !quote) { ++row; col = 0; ++c; continue; }
+                if (cc == '\n' && !quote) { ++row; col = 0; continue; }
+                if (cc == '\r' && !quote) { ++row; col = 0; continue; }
+                arr[row][col] += cc;
+            }
+            return arr;
+        };
+
+        const Toast = ({ message, type = 'success', onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+            return (
+                <div className={`fixed top-10 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 text-white animate-in slide-in-from-top duration-300 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                    {type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                    <span className="font-bold text-sm">{message}</span>
+                </div>
+            );
+        };
+
+        const ConfirmModal = ({ title, message, onConfirm, onCancel }) => (
+            <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-white rounded-3xl w-full max-w-xs p-6 shadow-2xl scale-100 animate-in zoom-in-95">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
+                    <p className="text-gray-500 text-xs mb-6">{message}</p>
+                    <div className="flex gap-3">
+                        <button onClick={onCancel} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl active:scale-95 transition-transform">取消</button>
+                        <button onClick={onConfirm} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl active:scale-95 transition-transform">確定</button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- Feature Components ---
+
+        // 1. Dashboard
+        const Dashboard = ({ user, db, showToast, geminiKey }) => {
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [allEvents, setAllEvents] = useState([]);
+            const [urgentTodos, setUrgentTodos] = useState([]);
+            const [scheduleFilter, setScheduleFilter] = useState('today');
+            const [aiSchedule, setAiSchedule] = useState([]); // Store JSON schedule array
+            const appId = DEFAULT_APP_ID;
+
+            useEffect(() => {
+                if (!user || !db) return;
+                
+                const unsubEvents = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('calendar_events')
+                    .onSnapshot((snap) => {
+                        const evs = []; 
+                        snap.forEach(doc => { const d = doc.data(); evs.push(d); });
+                        setAllEvents(evs);
+                    });
+                
+                const unsubTodos = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos')
+                    .onSnapshot((snap) => {
+                        const todos = []; 
+                        snap.forEach(doc => { const d = doc.data(); if(!d.completed) todos.push({id: doc.id, ...d}); }); // Include ID
+                        setUrgentTodos(todos); 
+                    });
+                return () => { unsubEvents(); unsubTodos(); };
+            }, [user, db]);
+
+            // Dashboard Filter Logic
+            const filteredDashboardEvents = useMemo(() => {
+                const todayStr = formatDate(new Date());
+                const now = new Date();
+                
+                if (scheduleFilter === 'today') return allEvents.filter(e => e.date === todayStr);
+                if (scheduleFilter === 'week') {
+                    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0,0,0,0);
+                    const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6); endOfWeek.setHours(23,59,59,999);
+                    return allEvents.filter(e => { const ed = new Date(e.date); return ed >= startOfWeek && ed <= endOfWeek; });
+                }
+                if (scheduleFilter === 'month') {
+                    const currentMonth = now.toISOString().slice(0, 7);
+                    return allEvents.filter(e => e.date.startsWith(currentMonth));
+                }
+                return [];
+            }, [allEvents, scheduleFilter]);
+
+            const handleGenerateBriefing = async () => {
+                setIsGenerating(true);
+                const todayStr = formatDate(new Date());
+                const todayEvents = allEvents.filter(e => e.date === todayStr);
+                
+                // Construct Todo List string with IDs for AI
+                const todoListForAI = urgentTodos.length > 0 
+                    ? JSON.stringify(urgentTodos.map(t => ({ id: t.id, text: t.text, priority: PRIORITIES[t.priority]?.label || '一般' })))
+                    : "目前無待辦事項，請安排一般行政工作或整理文件";
+
+                const prompt = `今天是 ${todayStr}。
+                我的工作時間是 09:00-12:00 和 13:00-17:00 (12:00-13:00 午休)。
+                
+                【輸入資料】
+                1. 待辦事項清單 (JSON): ${todoListForAI}
+                2. 今日固定行程: ${todayEvents.map(e => `${e.timeSlot}: ${e.workItem}`).join(', ')}
+                
+                【任務】
+                請為我規劃今日工作課表。
+                如果「待辦事項」是空的，請自動產生一些合理的行政工作（如：整理文件、收發信件、規劃下週進度）來填滿空檔。
+                
+                【輸出格式 (Strict JSON Array)】
+                請回傳一個 JSON Array，不要有 Markdown 標記，格式如下：
+                [
+                  { "time": "09:00-10:00", "task": "事項名稱", "todoId": "對應的待辦事項ID (如果有的話，沒有則null)", "type": "work" },
+                  { "time": "12:00-13:00", "task": "午休時間", "todoId": null, "type": "break" }
+                ]
+                請確保時間連續，覆蓋 09:00 到 17:00。`;
+                
+                const result = await callGemini(geminiKey, prompt, "你是一個專業的個人時間管理秘書，請只回傳 JSON 陣列。");
+                if (result) {
+                    try {
+                        // 清理 AI 可能回傳的 Markdown 標記
+                        const cleanJson = result.replace(/```json|```/g, '').trim();
+                        const scheduleArray = JSON.parse(cleanJson);
+                        setAiSchedule(scheduleArray);
+                    } catch (e) {
+                        console.error("JSON Parse Error", e);
+                        alert("AI 生成格式錯誤，請重試");
+                    }
+                }
+                setIsGenerating(false);
+            };
+
+            const handleCompleteScheduleItem = async (item) => {
+                // 1. 視覺上先打勾 (本地狀態更新)
+                const updatedSchedule = aiSchedule.map(s => {
+                    if (s === item) return { ...s, completed: !s.completed };
+                    return s;
+                });
+                setAiSchedule(updatedSchedule);
+
+                // 2. 如果有 todoId，去資料庫更新 Todo 狀態
+                if (item.todoId) {
+                    try {
+                        const todoRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos').doc(item.todoId);
+                        // 檢查 item.completed 是切換前的值，所以這裡要反轉
+                        const newStatus = !item.completed;
+                        await todoRef.update({ completed: newStatus });
+                        showToast(newStatus ? "已同步完成待辦事項！" : "已取消完成");
+                    } catch (err) {
+                        console.error("Sync Error", err);
+                    }
+                }
+            };
+
+            return (
+                <div className="space-y-4 animate-in fade-in duration-500 pb-20 md:pb-0">
+                  <header className="flex justify-between items-center mb-2 px-1">
+                    <div><h1 className="text-2xl font-black text-gray-800">早安, Boss</h1><p className="text-[9px] font-black text-indigo-400 uppercase mt-1 tracking-widest">Personal OS v3.5</p></div>
+                    <div className="bg-indigo-50 px-3 py-1.5 rounded-2xl text-right border border-indigo-100/50 text-[9px] font-black text-indigo-600 leading-none">{user.uid.slice(0, 8)}</div>
+                  </header>
+                  
+                  {/* AI Schedule Planner (Interactive) */}
+                  <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2.5rem] p-6 text-white shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-6 opacity-10"><Sparkles size={100}/></div>
+                    <div className="relative z-10">
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className="bg-white/20 p-3 rounded-2xl border border-white/30 backdrop-blur-md"><BrainCircuit size={22} /></div>
+                            <div>
+                                <div className="font-bold text-lg flex items-center gap-2">AI 智能課表 <span className="bg-white/20 text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider">Sync</span></div>
+                                <div className="text-white/70 text-[10px] mt-1">根據 09:00-17:00 工時自動規劃</div>
+                            </div>
+                        </div>
+                        
+                        {aiSchedule.length > 0 ? (
+                             <div className="bg-white/10 p-4 rounded-3xl border border-white/10 backdrop-blur-sm animate-in fade-in">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-xs font-bold text-white/80 uppercase tracking-widest">Today's Schedule</h4>
+                                    <button onClick={()=>setAiSchedule([])} className="text-[10px] text-white/60 hover:text-white"><X size={14}/></button>
+                                </div>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                                    {aiSchedule.map((item, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            onClick={() => handleCompleteScheduleItem(item)}
+                                            className={`flex items-center gap-3 p-2.5 rounded-2xl border transition-all cursor-pointer group ${item.type === 'break' ? 'bg-white/5 border-white/5' : 'bg-white/20 border-white/20 hover:bg-white/30'} ${item.completed ? 'opacity-50' : ''}`}
+                                        >
+                                            <div className="text-[10px] font-mono text-white/70 w-20 shrink-0">{item.time}</div>
+                                            <div className={`flex-1 text-xs font-bold ${item.completed ? 'line-through text-white/50' : 'text-white'}`}>
+                                                {item.task}
+                                            </div>
+                                            {item.type !== 'break' && (
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${item.completed ? 'bg-green-400 border-green-400' : 'border-white/40 group-hover:border-white'}`}>
+                                                    {item.completed && <CheckCircle2 size={12} className="text-white"/>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                             </div>
+                        ) : (
+                            <button onClick={handleGenerateBriefing} disabled={isGenerating} className="w-full bg-white/20 hover:bg-white/30 border border-white/20 p-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                                {isGenerating ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>} {isGenerating ? "正在規劃今日行程..." : "生成今日智能排程"}
+                            </button>
+                        )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <WeatherWidget />
+                    <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-50 flex flex-col justify-center">
+                        <div className="flex justify-between items-center mb-2"><div className="text-[7px] font-black text-gray-400 uppercase">System Status</div><div className="flex gap-1"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div></div></div>
+                        <div className="text-xl font-black text-gray-800 flex items-center gap-2"><Zap size={20} className="text-yellow-500" fill="currentColor"/> {allEvents.filter(e => e.date === formatDate(new Date())).length} 行程 / {urgentTodos.filter(t => !t.completed).length} 待辦</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-50">
+                      <div className="flex justify-between items-center mb-4">
+                          <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm"><CalendarIcon className="text-indigo-500" size={16}/> 近期行程</h3>
+                          <div className="flex bg-gray-100 p-1 rounded-xl">
+                              {['today', 'week', 'month'].map(f => (
+                                  <button key={f} onClick={() => setScheduleFilter(f)} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${scheduleFilter === f ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}>
+                                      {f === 'today' ? '今日' : f === 'week' ? '本周' : '本月'}
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+                      <div className="space-y-2">
+                          {filteredDashboardEvents.length > 0 ? (
+                              filteredDashboardEvents.sort((a,b) => new Date(a.date) - new Date(b.date)).slice(0, 5).map((ev, idx) => (
+                                  <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50">
+                                      <div className={`w-1.5 h-8 rounded-full ${DEFAULT_AREA_COLORS[ev.area] || 'bg-gray-300'}`}></div>
+                                      <div className="flex-1">
+                                          <div className="flex justify-between">
+                                              <span className="text-xs font-bold text-gray-800">{ev.workItem}</span>
+                                              <span className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-lg">{ev.date.slice(5)}</span>
+                                          </div>
+                                          <div className="text-[9px] text-gray-400">{ev.timeSlot} • {ev.area}</div>
+                                      </div>
+                                  </div>
+                              ))
+                          ) : (
+                              <div className="text-center py-4 text-[10px] text-gray-400">目前無相關行程</div>
+                          )}
+                      </div>
+                  </div>
+
+                  <TodoManager user={user} db={db} showToast={showToast} compact={true} geminiKey={geminiKey} />
+                </div>
+            );
+        };
+
+        // 2. Commute
+        const CommuteTracker = ({ user, db, showToast }) => {
+            const [mode, setMode] = useState('office');
+            const [direction, setDirection] = useState('to_work');
+            const [log, setLog] = useState({ stages: {} });
+            const [copyStatus, setCopyStatus] = useState(null);
+            const today = formatDate(new Date());
+            const appId = DEFAULT_APP_ID;
+
+            useEffect(() => {
+                if (!user || !db) return;
+                const logRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('commute_logs').doc(today);
+                return logRef.onSnapshot((doc) => { if (doc.exists) setLog(doc.data()); });
+            }, [user, db]);
+
+            // Auto Checkin Logic
+            useEffect(() => {
+                if (!user || !db) return;
+                const params = new URLSearchParams(window.location.search);
+                const action = params.get('auto_checkin');
+                if (action && !log.stages[action]) {
+                    handleCheckIn(action);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }, [user, db, log.stages]);
+
+            const handleCheckIn = async (stageId) => {
+                if (!user) return;
+                const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+                const logRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('commute_logs').doc(today);
+                try {
+                    await logRef.set({ stages: { ...log.stages, [stageId]: time }, mode, updatedAt: Date.now() }, { merge: true });
+                    showToast(`${getLabelById(stageId)} 打卡成功: ${time}`);
+                } catch(e) { console.error(e); }
+            };
+
+            const copyLink = (id) => {
+                const url = `${window.location.origin}${window.location.pathname}?auto_checkin=${id}`;
+                navigator.clipboard.writeText(url);
+                setCopyStatus(id); setTimeout(()=>setCopyStatus(null), 2000);
+            };
+
+            const toWorkCheckpoints = [{ id: 'home_leave', label: '離開家裡', icon: Home }, { id: 'tn_arrive', label: '抵達台南火車站', icon: MapPin }, { id: 'tn_leave', label: '台南火車發車', icon: Train }, { id: 'kh_arrive', label: '抵達高雄火車站', icon: MapPin }, { id: 'office_arrive', label: '抵達辦公室', icon: Briefcase }];
+            const toHomeCheckpoints = [{ id: 'office_leave', label: '離開辦公室', icon: LogOut }, { id: 'kh_return_arrive', label: '抵達高雄火車站', icon: MapPin }, { id: 'kh_return_leave', label: '高雄火車發車', icon: Train }, { id: 'tn_return_arrive', label: '抵達台南火車站', icon: MapPin }, { id: 'home_return_arrive', label: '抵達溫暖的家', icon: Home }];
+            
+            const getLabelById = (id) => {
+                const all = [...toWorkCheckpoints, ...toHomeCheckpoints, {id:'field_start', label:'外訪開始'}, {id:'field_end', label:'外訪結束'}];
+                return all.find(c => c.id === id)?.label || '打卡';
+            };
+
+            const currentCheckpoints = direction === 'to_work' ? toWorkCheckpoints : toHomeCheckpoints;
+
+            return (
+                <div className="space-y-4 animate-in fade-in">
+                    <div className="bg-white p-6 rounded-[2.5rem] shadow-sm space-y-6">
+                        <div className="flex justify-between items-center"><h2 className="text-xl font-black text-indigo-900 flex items-center gap-2"><Train size={24}/> 通勤打卡</h2><div className="flex bg-gray-100 p-1 rounded-xl">{['office', 'field'].map(m => (<button key={m} onClick={()=>setMode(m)} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${mode === m ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}>{m === 'office' ? '進辦公室' : '外訪行程'}</button>))}</div></div>
+                        {mode === 'office' ? (
+                            <>
+                                <div className="flex bg-indigo-50 p-1 rounded-xl mb-2"><button onClick={()=>setDirection('to_work')} className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${direction === 'to_work' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-300'}`}>去程 (上班)</button><button onClick={()=>setDirection('to_home')} className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${direction === 'to_home' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-300'}`}>回程 (下班)</button></div>
+                                <div className="border-l-2 border-indigo-50 ml-3 space-y-6 py-2">
+                                    {currentCheckpoints.map(cp => (
+                                        <div key={cp.id} className="relative pl-6">
+                                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 ${log.stages[cp.id] ? 'bg-indigo-500 border-indigo-500 shadow' : 'bg-white border-gray-200'}`}></div>
+                                            <div className="flex justify-between items-center text-sm font-bold text-gray-600"><span className="flex items-center gap-2"><cp.icon size={16}/> {cp.label}</span>{log.stages[cp.id] ? <span className="font-black text-indigo-600 font-mono">{log.stages[cp.id]}</span> : <button onClick={()=>handleCheckIn(cp.id)} className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-xl text-xs font-black active:scale-95 transition-transform">打卡</button>}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="pl-6 space-y-4"><div className="bg-orange-50 p-4 rounded-2xl border border-orange-100"><h4 className="font-black text-orange-800 text-sm mb-3">外訪模式</h4><div className="flex gap-2"><button onClick={()=>handleCheckIn('field_start')} className="flex-1 py-3 bg-orange-200 text-orange-900 rounded-xl text-xs font-black shadow-sm">外訪開始</button><button onClick={()=>handleCheckIn('field_end')} className="flex-1 py-3 bg-white text-orange-900 border border-orange-200 rounded-xl text-xs font-black shadow-sm">外訪結束</button></div><div className="mt-3 text-[10px] text-orange-600 font-bold space-y-1"><div className="flex justify-between"><span>開始時間</span><span>{log.stages['field_start'] || '--:--'}</span></div><div className="flex justify-between"><span>結束時間</span><span>{log.stages['field_end'] || '--:--'}</span></div></div></div></div>
+                        )}
+                    </div>
+                    <div className="bg-slate-800 p-5 rounded-[2.5rem] shadow-lg text-white space-y-3">
+                        <h3 className="text-xs font-black flex items-center gap-2 uppercase tracking-widest text-slate-400"><LinkIcon size={14}/> 自動化連結 (Shortcuts)</h3>
+                        <div className="space-y-2">{currentCheckpoints.map(cp => (<div key={cp.id} className="flex justify-between items-center bg-white/10 p-2 rounded-xl text-xs"><span className="font-bold">{cp.label}</span><button onClick={()=>copyLink(cp.id)} className="text-[10px] bg-white text-slate-900 px-2 py-1 rounded-lg font-black active:scale-95 transition-transform">{copyStatus === cp.id ? '已複製!' : '複製'}</button></div>))}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 3. Calendar
+        const ListManagerModal = ({ user, db, lists, onCancel, showToast, appId }) => {
+            const [activeTab, setActiveTab] = useState('areas');
+            const [newItem, setNewItem] = useState('');
+            const addItem = async () => { if (!newItem || !user) return; await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('settings').doc('master_lists').set({ [activeTab]: firebase.firestore.FieldValue.arrayUnion(newItem.trim()) }, { merge: true }); setNewItem(''); showToast('已新增'); };
+            const deleteItem = async (item) => { await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('settings').doc('master_lists').update({ [activeTab]: firebase.firestore.FieldValue.arrayRemove(item) }); showToast('已刪除'); };
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[150] flex items-center justify-center p-6 backdrop-blur-md animate-in fade-in">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl flex flex-col max-h-[80vh]">
+                        <div className="flex justify-between items-center mb-6 text-gray-800 font-black"><h3>清單管理</h3><button onClick={onCancel} className="bg-gray-100 p-2 rounded-full"><X size={18}/></button></div>
+                        <div className="flex p-1 bg-gray-100 rounded-xl mb-4">{['areas', 'workItems', 'staff'].map(t => <button key={t} onClick={()=>setActiveTab(t)} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all ${activeTab === t ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}>{t === 'areas' ? '轄區' : t === 'workItems' ? '工作' : '人員'}</button>)}</div>
+                        <div className="flex gap-2 mb-4"><input className="flex-1 bg-gray-50 border-none rounded-xl p-3 text-xs font-bold" value={newItem} onChange={e=>setNewItem(e.target.value)} placeholder="新增項目..."/><button onClick={addItem} className="bg-indigo-600 text-white p-3 rounded-xl"><Plus size={20}/></button></div>
+                        <div className="flex-1 overflow-y-auto space-y-2 scrollbar-hide">{lists[activeTab]?.map((item, idx) => (<div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-2xl"><span className="text-xs font-bold text-gray-700">{item}</span><button onClick={()=>deleteItem(item)} className="text-red-300"><Trash2 size={16}/></button></div>))}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        const EventModal = ({ user, event, date, lists, onSave, onCancel, onDelete }) => {
+            const [formData, setFormData] = useState(event || { date, timeSlot: '上午', workItem: lists.workItems?.[0], area: lists.areas?.[0], attendees: '', address: '', note: '' });
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto scrollbar-hide">
+                        <div className="flex justify-between items-center mb-2"><h3 className="text-lg font-black text-gray-800">{event ? '編輯行程' : '新增行程'}</h3><button onClick={onCancel} className="bg-gray-100 p-2 rounded-full"><X size={18}/></button></div>
+                        <div className="space-y-4">
+                            <div className="flex gap-2"><div className="flex-1"><label className="text-[10px] font-black text-gray-400 mb-1 block">日期</label><input type="date" className="w-full bg-gray-50 rounded-xl p-3 text-xs font-bold" value={formData.date} onChange={e=>setFormData({...formData, date: e.target.value})}/></div><div className="flex-1"><label className="text-[10px] font-black text-gray-400 mb-1 block">時段</label><select className="w-full bg-gray-50 rounded-xl p-3 text-xs font-bold" value={formData.timeSlot} onChange={e=>setFormData({...formData, timeSlot: e.target.value})}>{['上午', '下午', '整天'].map(t => <option key={t} value={t}>{t}</option>)}</select></div></div>
+                            <div><label className="text-[10px] font-black text-gray-400 mb-1 block">工作項目</label><select className="w-full bg-gray-50 rounded-xl p-3 text-xs font-bold" value={formData.workItem} onChange={e=>setFormData({...formData, workItem: e.target.value})}>{lists.workItems?.map(i => <option key={i} value={i}>{i}</option>)}</select></div>
+                            <div><label className="text-[10px] font-black text-gray-400 mb-1 block">轄區</label><div className="flex flex-wrap gap-1">{lists.areas?.map(a => (<button key={a} onClick={()=>setFormData({...formData, area: a})} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${formData.area === a ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-400 border-gray-100'}`}>{a}</button>))}</div></div>
+                            <div><label className="text-[10px] font-black text-gray-400 mb-1 block">地址</label><input className="w-full bg-gray-50 rounded-xl p-3 text-xs font-bold" value={formData.address} onChange={e=>setFormData({...formData, address: e.target.value})} placeholder="輸入地址可開啟導航"/></div>
+                            <div><label className="text-[10px] font-black text-gray-400 mb-1 block">備註</label><textarea className="w-full bg-gray-50 rounded-xl p-3 text-xs h-16 resize-none" value={formData.note} onChange={e=>setFormData({...formData, note: e.target.value})}/></div>
+                        </div>
+                        <div className="flex gap-2 pt-2">{event && <button onClick={()=>onDelete(event.id)} className="p-4 bg-red-50 text-red-500 rounded-2xl"><Trash2 size={20}/></button>}<button onClick={()=>onSave(formData)} className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg">儲存行程</button></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const CalendarView = ({ user, db, showToast }) => {
+            const [events, setEvents] = useState([]);
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [modalData, setModalData] = useState(null);
+            const [showListManager, setShowListManager] = useState(false);
+            const [listFilter, setListFilter] = useState('today'); 
+            const [masterLists, setMasterLists] = useState({
+                areas: ['高雄', '澎湖', '台東', '屏東', '就業通', '訓就', '分署'],
+                workItems: ['審查會', '訪視', '成效', '試用', 'OFF', '專案報告', '大宗案件', '月報'],
+                staff: ['高湘怡', '黃國裕', '方姿云', '陳秋媚', '蔡凱宇', '盧怡倫']
+            });
+            const appId = DEFAULT_APP_ID;
+
+            useEffect(() => {
+                if (!user || !db) return;
+                const unsubEvents = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('calendar_events')
+                    .onSnapshot((snap) => { const data = []; snap.forEach(doc => data.push({ ...doc.data(), id: doc.id })); setEvents(data); });
+                const unsubLists = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('settings').doc('master_lists')
+                    .onSnapshot((doc) => { if (doc.exists) setMasterLists(doc.data()); });
+                return () => { unsubEvents(); unsubLists(); };
+            }, [user, db]);
+
+            const days = useMemo(() => {
+                const dInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                const first = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+                const arr = []; for(let i=0; i<first; i++) arr.push(null); for(let i=1; i<=dInMonth; i++) arr.push(i); return arr;
+            }, [currentDate]);
+
+            const filteredEvents = useMemo(() => {
+                const todayStr = formatDate(new Date());
+                const now = new Date();
+                
+                if (listFilter === 'today') return events.filter(e => e.date === todayStr);
+                if (listFilter === 'week') {
+                    const startOfWeek = new Date(now);
+                    startOfWeek.setDate(now.getDate() - now.getDay());
+                    startOfWeek.setHours(0,0,0,0);
+                    const endOfWeek = new Date(startOfWeek);
+                    endOfWeek.setDate(startOfWeek.getDate() + 6);
+                    endOfWeek.setHours(23,59,59,999);
+                    return events.filter(e => { const ed = new Date(e.date); return ed >= startOfWeek && ed <= endOfWeek; });
+                }
+                if (listFilter === 'month') {
+                    const currentMonth = currentDate.toISOString().slice(0, 7);
+                    return events.filter(e => e.date.startsWith(currentMonth));
+                }
+                return events.filter(e => e.date.startsWith(currentDate.toISOString().slice(0, 7)));
+            }, [events, listFilter, currentDate]);
+
+            return (
+                <div className="animate-in fade-in">
+                    {modalData && <EventModal user={user} event={modalData.event} date={modalData.date} lists={masterLists} onSave={async(data)=>{if(modalData.mode==='edit') await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('calendar_events').doc(modalData.event.id).set(data); else await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('calendar_events').add(data); setModalData(null); showToast('已儲存');}} onCancel={()=>setModalData(null)} onDelete={async(id)=>{if(confirm('刪除行程？')){await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('calendar_events').doc(id).delete(); setModalData(null); showToast('已刪除');}}} />}
+                    {showListManager && <ListManagerModal user={user} db={db} lists={masterLists} onCancel={()=>setShowListManager(false)} showToast={showToast} appId={appId}/>}
+                    
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-black text-gray-800">{currentDate.toLocaleString('zh-TW', { year: 'numeric', month: 'long' })}</h2>
+                            <div className="flex gap-2"><button onClick={()=>setShowListManager(true)} className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl hover:bg-indigo-100"><Settings size={20}/></button><div className="flex bg-gray-100 rounded-2xl p-1"><button onClick={()=>setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth()-1)))} className="p-2 text-gray-400 hover:text-gray-600">&lt;</button><button onClick={()=>setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth()+1)))} className="p-2 text-gray-400 hover:text-gray-600">&gt;</button></div></div>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                            {['日','一','二','三','四','五','六'].map(w => <div key={w} className="text-center text-[10px] font-black text-gray-400 mb-4">{w}</div>)}
+                            {days.map((d, idx) => {
+                                const dateStr = d ? `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}` : '';
+                                const holidayName = HOLIDAYS[dateStr];
+                                const isHoliday = holidayName || [0, 6].includes(idx % 7);
+                                const isToday = formatDate(new Date()) === dateStr;
+                                const dayEvents = events.filter(e => e.date === dateStr);
+                                return (
+                                    <div key={idx} onClick={() => d && setModalData({ mode: 'add', date: dateStr, event: null })} className={`min-h-[75px] flex flex-col items-center p-1 rounded-2xl border transition-all cursor-pointer hover:bg-gray-50 ${d ? (isToday ? 'bg-white border-yellow-400 shadow-md ring-2 ring-yellow-100' : 'bg-white border-transparent') : 'bg-transparent'}`}>
+                                        {d && (
+                                            <>
+                                                <span className={`text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-full mb-0.5 ${isToday ? 'bg-yellow-400 text-white' : (isHoliday ? 'text-red-500' : 'text-gray-400')}`}>{d}</span>
+                                                {holidayName && <span className="text-[7px] text-red-400 font-bold mb-1 w-full text-center truncate">{holidayName}</span>}
+                                                <div className="w-full space-y-0.5 mt-0.5">
+                                                    {dayEvents.slice(0, 2).map(ev => <div key={ev.id} onClick={(e)=>{e.stopPropagation(); setModalData({mode:'edit', event:ev, date:dateStr})}} className={`p-1 rounded bg-blue-50 text-blue-600 text-[6px] font-black truncate`}>{ev.workItem}</div>)}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-3">
+                            <h3 className="text-sm font-black text-gray-800 flex items-center gap-2"><ListFilter size={16} className="text-indigo-500"/> 行程清單</h3>
+                            <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100 w-full md:w-auto self-start">
+                                {['today', 'week', 'month'].map(f => (
+                                    <button key={f} onClick={()=>setListFilter(f)} className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all ${listFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}>
+                                        {f === 'today' ? '今日' : f === 'week' ? '當週' : '當月'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pb-24 md:pb-0">
+                            {filteredEvents.length > 0 ? (
+                                filteredEvents.sort((a,b)=>new Date(a.date)-new Date(b.date)).map(ev => (
+                                    <div key={ev.id} onClick={()=>setModalData({mode:'edit', event:ev, date:ev.date})} className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-center gap-4 cursor-pointer hover:border-indigo-100 transition-colors">
+                                        <div className={`w-2.5 h-12 rounded-full shrink-0 ${DEFAULT_AREA_COLORS[ev.area] || 'bg-gray-300'}`}></div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-black text-indigo-600">{ev.date.slice(5)} {ev.timeSlot}</span>
+                                                <span className={`text-sm font-black px-3 py-1 rounded-full uppercase text-white shadow-sm ${DEFAULT_AREA_COLORS[ev.area] || 'bg-gray-400'}`}>{ev.area}</span>
+                                            </div>
+                                            <div className="text-sm font-black text-gray-800">{ev.workItem}</div>
+                                            {ev.address && <div className="text-[10px] text-indigo-400 font-bold truncate mt-1.5 flex items-center gap-1"><MapPin size={12}/> {ev.address}</div>}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="bg-white/50 border-2 border-dashed border-gray-200 rounded-[2.5rem] py-12 text-center">
+                                    <Palmtree className="mx-auto text-gray-200 mb-2" size={32}/>
+                                    <p className="text-xs text-gray-400 font-bold italic">目前沒有相關行程</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 4. Todo (Enhanced with Priority & Case List)
+        const TodoManager = ({ user, db, showToast, compact = false, geminiKey }) => {
+            const [todos, setTodos] = useState([]);
+            const [newTodo, setNewTodo] = useState('');
+            const [loadingId, setLoadingId] = useState(null);
+            const [priority, setPriority] = useState('urgent_important');
+            const [dueDate, setDueDate] = useState('');
+            const [workCases, setWorkCases] = useState([]);
+            const [selectedCase, setSelectedCase] = useState('');
+            const appId = DEFAULT_APP_ID;
+
+            useEffect(() => {
+                if (!user || !db) return;
+                // Fetch Work Cases from Google Sheet (CSV)
+                fetch(GOOGLE_SHEET_CSV_URL)
+                    .then(res => res.text())
+                    .then(csv => {
+                        const parsed = parseCSV(csv);
+                        // Assuming the first column contains case names, skipping header
+                        const cases = parsed.slice(1).map(row => row[0]).filter(c => c);
+                        setWorkCases(cases);
+                    })
+                    .catch(err => console.error("Failed to load work cases", err));
+
+                return db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos')
+                    .onSnapshot((snap) => {
+                        const data = []; snap.forEach(doc => data.push({ ...doc.data(), id: doc.id }));
+                        setTodos(data.sort((a,b) => new Date(a.date) - new Date(b.date)));
+                    });
+            }, [user, db]);
+
+            const addTodo = async () => {
+                if (!newTodo) return;
+                let text = newTodo;
+                if (selectedCase) text = `[${selectedCase}] ${text}`;
+                
+                await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos').add({ 
+                    text: text, 
+                    date: formatDate(new Date()), 
+                    dueDate: dueDate || null,
+                    priority: priority,
+                    completed: false, 
+                    createdAt: Date.now() 
+                });
+                setNewTodo('');
+                setDueDate('');
+                setSelectedCase('');
+            };
+
+            const toggleTodo = async (t) => await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos').doc(t.id).update({ completed: !t.completed });
+            
+            const handleMagicBreakdown = async (todo) => {
+                setLoadingId(todo.id);
+                showToast("AI 正在施展拆解魔法... ✨");
+                const prompt = `請將這個待辦事項「${todo.text}」拆解成 3-5 個具體、可執行的子任務。請直接回傳任務清單，每行一個，不要有編號或額外文字。`;
+                const result = await callGemini(geminiKey, prompt, "你是一個效率專家");
+                if (result) {
+                    const subtasks = result.split('\n').filter(line => line.trim());
+                    for (const task of subtasks) {
+                        await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos').add({ 
+                            text: `↳ ${task.replace(/^- /, '')}`, 
+                            date: formatDate(new Date()), 
+                            priority: todo.priority, // Inherit priority
+                            completed: false, 
+                            createdAt: Date.now() 
+                        });
+                    }
+                    showToast(`已成功拆解成 ${subtasks.length} 個子任務！`);
+                } else { showToast("魔法失效，請稍後再試", "error"); }
+                setLoadingId(null);
+            };
+
+            if (compact) {
+                const urgent = todos.filter(t => !t.completed);
+                if (urgent.length === 0) return null;
+                return (
+                    <div className="bg-red-50 p-4 rounded-3xl mb-4 border border-red-100">
+                        <h3 className="text-xs font-bold text-red-800 mb-2 flex items-center gap-2"><Clock size={14}/> 近期截止</h3>
+                        {urgent.slice(0, 3).map(t => (
+                            <div key={t.id} onClick={()=>toggleTodo(t)} className="bg-white p-2 rounded-xl flex justify-between items-center text-xs text-red-700 shadow-sm mb-1 cursor-pointer">
+                                <span className="truncate flex-1">{t.text}</span>
+                                {t.priority && <span className="ml-2">{PRIORITIES[t.priority]?.icon}</span>}
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+
+            return (
+                <div className="space-y-4 animate-in fade-in">
+                    <div className="bg-white p-5 rounded-[2.5rem] shadow-sm space-y-3">
+                        <div className="flex flex-col gap-2">
+                            <input className="w-full bg-gray-50 p-3 rounded-2xl text-sm font-bold outline-none" placeholder="想要做什麼？" value={newTodo} onChange={e=>setNewTodo(e.target.value)}/>
+                            
+                            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                                {workCases.length > 0 && (
+                                    <select className="bg-gray-50 p-2 rounded-xl text-xs font-bold border-none outline-none min-w-[100px]" value={selectedCase} onChange={e=>setSelectedCase(e.target.value)}>
+                                        <option value="">選擇個案 (選填)</option>
+                                        {workCases.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                                    </select>
+                                )}
+                                <select className="bg-gray-50 p-2 rounded-xl text-xs font-bold border-none outline-none" value={priority} onChange={e=>setPriority(e.target.value)}>
+                                    {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+                                </select>
+                                <input type="date" className="bg-gray-50 p-2 rounded-xl text-xs font-bold border-none outline-none" value={dueDate} onChange={e=>setDueDate(e.target.value)} title="預計完成日 (選填)"/>
+                            </div>
+                        </div>
+                        <button onClick={addTodo} className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-indigo-700">+</button>
+                    </div>
+                    <div className="pb-24 md:pb-0 space-y-3">
+                        {todos.map(t => {
+                            const pConfig = PRIORITIES[t.priority] || PRIORITIES['not_urgent_not_important'];
+                            return (
+                                <div key={t.id} className={`flex items-start gap-3 p-4 bg-white rounded-3xl shadow-sm border border-gray-50 ${t.completed ? 'opacity-50 grayscale' : ''}`}>
+                                    <button onClick={()=>toggleTodo(t)} className={`mt-1 p-1 rounded-full border-2 ${t.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-200'}`}><CheckCircle2 size={16}/></button>
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`text-sm font-black truncate ${t.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.text}</div>
+                                        <div className="flex gap-2 mt-1">
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-full border ${pConfig.color}`}>{pConfig.icon} {pConfig.label}</span>
+                                            {t.dueDate && <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex items-center gap-1"><Clock size={10}/> {t.dueDate}</span>}
+                                        </div>
+                                    </div>
+                                    {!t.completed && <button onClick={() => handleMagicBreakdown(t)} disabled={loadingId === t.id} className={`p-2 rounded-xl bg-purple-50 text-purple-600 ${loadingId === t.id ? 'animate-pulse' : ''}`}>{loadingId === t.id ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14}/>}</button>}
+                                    <button onClick={()=>db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('todos').doc(t.id).delete()} className="text-gray-300 hover:text-red-400"><Trash2 size={14}/></button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        // 5. Expense Tracker
+        const ExpenseTracker = ({ user, db, showToast, geminiKey }) => {
+            const [items, setItems] = useState([]);
+            const [pendingItems, setPendingItems] = useState([{ id: Date.now(), category: '食', name: '', quantity: 1, unitPrice: '', amount: 0, split: ['我'], showSettings: false, note: '', date: formatDate(new Date()), timeSlot: getTimeSlot() }]);
+            const [isAiLoading, setIsAiLoading] = useState(false);
+            const [showConfirm, setShowConfirm] = useState(false);
+            const fileInputRef = useRef(null);
+            const appId = DEFAULT_APP_ID;
+
+            useEffect(() => {
+                if (!user || !db) return;
+                return db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('expense_items')
+                    .onSnapshot((snap) => {
+                        const data = []; snap.forEach(doc => data.push({...doc.data(), id: doc.id}));
+                        setItems(data.sort((a,b) => b.createdAt - a.createdAt));
+                    });
+            }, [user, db]);
+
+            const updateRow = (index, field, value) => {
+                const next = [...pendingItems]; next[index] = { ...next[index], [field]: value };
+                if (field === 'unitPrice' || field === 'quantity') next[index].amount = (Number(next[index].unitPrice) || 0) * (Number(next[index].quantity) || 0);
+                setPendingItems(next);
+            };
+
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                setIsAiLoading(true); showToast("✨ AI 正在分析收據...");
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    try {
+                        const res = await callGemini(geminiKey, `分析收據，回傳 JSON：category, name, quantity, unitPrice, amount, note, timeSlot。`, "助手", reader.result);
+                        const jsonStr = res.replace(/```json|```/g, '').trim();
+                        const result = JSON.parse(jsonStr);
+                        setPendingItems(prev => [...prev.filter(i=>i.name!==''), { ...result, date:formatDate(new Date()), split:['我'], id:Date.now() }]);
+                        showToast("辨識完成");
+                    } catch (e) { showToast("辨識失敗", "error"); } finally { setIsAiLoading(false); }
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const saveBatch = async () => {
+                try {
+                    const valid = pendingItems.filter(i => Number(i.amount) > 0);
+                    if (valid.length === 0) { alert("沒有有效金額的項目"); return; }
+                    const batch = db.batch(); 
+                    valid.forEach(i => {
+                        const docRef = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('expense_items').doc();
+                        const { id, showSettings, ...dataToSave } = i;
+                        batch.set(docRef, { ...dataToSave, ledger: 'family', createdAt: Date.now() });
+                    });
+                    await batch.commit();
+                    setPendingItems([{ id: Date.now(), category: '食', name: '', quantity: 1, unitPrice: '', amount: 0, split: ['我'], showSettings: false, note: '', date: formatDate(new Date()), timeSlot: getTimeSlot() }]);
+                    setShowConfirm(false); 
+                    showToast('記帳成功');
+                } catch (e) { console.error("Save failed", e); alert("儲存失敗: " + e.message); }
+            };
+            const total = pendingItems.reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+
+            return (
+                <div className="space-y-4 animate-in fade-in">
+                    {showConfirm && <ConfirmModal title="確認記帳" message={`總金額 $${total}，確定存入雲端嗎？`} onConfirm={saveBatch} onCancel={()=>setShowConfirm(false)}/>}
+                    <div className="bg-white p-5 rounded-[2.5rem] shadow-sm space-y-4 border border-gray-50">
+                        <div className="flex justify-between items-center px-1">
+                            <h3 className="font-black text-gray-800 text-xs uppercase tracking-widest">Entry List</h3>
+                            <button onClick={()=>fileInputRef.current.click()} disabled={isAiLoading} className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl active:scale-95 transition-all hover:bg-indigo-100">
+                                {isAiLoading ? <Loader2 size={16} className="animate-spin"/> : <div className="flex items-center gap-1"><Sparkles size={14} className="text-yellow-400"/><Camera size={16}/></div>}
+                                <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleImageUpload}/>
+                            </button>
+                        </div>
+                        {pendingItems.map((item, idx) => (
+                            <div key={item.id} className="p-3 border rounded-2xl bg-gray-50/50 space-y-2">
+                                <div className="flex gap-2"><select className="bg-white border-none rounded-lg p-1 text-[10px] font-bold text-indigo-600 outline-none" value={item.category} onChange={e=>updateRow(idx, 'category', e.target.value)}>{['食','衣','住','行','3C','APP','醫療','投資'].map(c=><option key={c} value={c}>{c}</option>)}</select><input placeholder="品項名稱" className="flex-1 bg-white border-none rounded-lg p-1 text-[10px] font-bold outline-none" value={item.name} onChange={e=>updateRow(idx, 'name', e.target.value)}/><button onClick={()=>setPendingItems(pendingItems.filter((_,i)=>i!==idx))} className="text-gray-300 hover:text-red-400"><Trash2 size={14}/></button></div>
+                                <div className="flex items-center justify-between px-1"><button onClick={()=>updateRow(idx, 'showSettings', !item.showSettings)} className={`text-[8px] font-black px-2 py-1 rounded-lg ${item.showSettings?'bg-indigo-600 text-white':'bg-white text-gray-400 border'}`}>{item.date.slice(5)} {item.timeSlot} • {item.split.length>1?`${item.split.length}人`:'個人'}</button>{item.split.length > 1 && <span className="text-indigo-500 font-mono italic">一人 ${(item.amount/item.split.length).toFixed(0)}</span>}</div>
+                                {item.showSettings && (<div className="p-2 mt-1 bg-indigo-50 rounded-xl space-y-2 border border-indigo-100"><div className="flex gap-2"><input type="date" className="flex-1 bg-white p-1 text-[9px] rounded font-bold" value={item.date} onChange={e=>updateRow(idx, 'date', e.target.value)}/><select className="flex-1 bg-white p-1 text-[9px] rounded font-bold" value={item.timeSlot} onChange={e=>updateRow(idx, 'timeSlot', e.target.value)}>{['早餐','午餐','晚餐','宵夜/其他'].map(t=><option key={t} value={t}>{t}</option>)}</select></div><div className="flex gap-1">{['弟弟','媽媽','我'].map(m => (<button key={m} onClick={()=>{const next = item.split.includes(m) ? (item.split.length > 1 ? item.split.filter(x=>x!==m) : item.split) : [...item.split, m]; updateRow(idx, 'split', next);}} className={`flex-1 py-1.5 rounded-lg text-[9px] font-black border transition-all ${item.split.includes(m)?'bg-indigo-600 text-white border-indigo-600':'bg-white text-gray-400'}`}>{m}</button>))}</div></div>)}
+                                <div className="flex gap-2"><input type="number" className="w-[15%] bg-white border-none rounded p-1.5 text-[10px] text-center font-bold" value={item.quantity} onChange={e=>updateRow(idx, 'quantity', e.target.value)}/><input type="number" className="flex-1 bg-white border-none rounded p-1.5 text-[10px] text-right font-black" placeholder="單價" value={item.unitPrice} onChange={e=>updateRow(idx, 'unitPrice', e.target.value)}/><div className="flex-1 bg-indigo-50 p-1.5 text-[10px] text-right font-black text-indigo-700 rounded">${item.amount}</div></div>
+                                <input placeholder="備註..." className="w-full bg-transparent border-b border-gray-200 p-1 text-[9px] text-gray-400 outline-none" value={item.note} onChange={e=>updateRow(idx, 'note', e.target.value)}/>
+                            </div>
+                        ))}
+                        <button onClick={()=>setPendingItems([...pendingItems, { id: Date.now(), category: '食', name: '', quantity: 1, unitPrice: '', amount: 0, split: ['我'], showSettings: false, note: '', date: formatDate(new Date()), timeSlot: getTimeSlot() }])} className="w-full py-3 border-2 border-dashed border-gray-100 rounded-2xl text-gray-300 text-[10px] font-black uppercase tracking-widest hover:border-indigo-200 hover:text-indigo-400 transition-all">+ Add Item</button>
+                        <div className="pt-2 border-t flex justify-between items-center px-1"><div className="text-xl font-black text-indigo-600">${total}</div><button onClick={()=>setShowConfirm(true)} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors">確認記帳</button></div>
+                    </div>
+                    <div className="space-y-2">
+                        {items.slice(0,5).map(item => (
+                            <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-gray-50">
+                                <div><div className="font-bold text-gray-800 text-xs">{item.name || item.category}</div><div className="text-[9px] text-gray-400">{item.date} • {Array.isArray(item.split) ? item.split.join(', ') : '我'}</div></div>
+                                <div className="font-black text-indigo-600 text-xs">${item.amount}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // 6. Report (Restored)
+        const ExpenseReport = ({ user, db }) => {
+            const [month, setMonth] = useState(new Date().getMonth() + 1);
+            const [year, setYear] = useState(new Date().getFullYear());
+            const [data, setData] = useState([]);
+            const appId = DEFAULT_APP_ID;
+            useEffect(() => {
+                if (!user || !db) return;
+                return db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('expense_items')
+                    .onSnapshot((snap) => { const items = []; snap.forEach(doc => items.push(doc.data())); setData(items); });
+            }, [user, db]);
+            const filtered = data.filter(i => { const d = new Date(i.date); return d.getFullYear() === Number(year) && (d.getMonth() + 1) === Number(month); });
+            const familyStats = filtered.reduce((acc, i) => { const per = i.amount / ((Array.isArray(i.split) ? i.split.length : 1) || 1); (Array.isArray(i.split) ? i.split : ['我']).forEach(m => { acc[m] = (acc[m] || 0) + per; }); return acc; }, { '弟弟': 0, '媽媽': 0, '我': 0 });
+            const mealStats = filtered.filter(i => i.category === '食').reduce((acc, i) => { const slot = i.timeSlot || '宵夜/其他'; acc[slot] = (acc[slot] || 0) + i.amount; return acc; }, { '早餐': 0, '午餐': 0, '晚餐': 0, '宵夜/其他': 0 });
+            return (
+                <div className="space-y-4 animate-in fade-in pb-24 md:pb-0">
+                    <div className="flex gap-2"><select className="bg-white p-3 rounded-2xl text-xs font-bold flex-1 border border-gray-100 outline-none" value={year} onChange={e=>setYear(e.target.value)}>{[2025,2026].map(y=><option key={y} value={y}>{y}年</option>)}</select><select className="bg-white p-3 rounded-2xl text-xs font-bold flex-1 border border-gray-100 outline-none" value={month} onChange={e=>setMonth(e.target.value)}>{[...Array(12)].map((_,i)=><option key={i+1} value={i+1}>{i+1}月</option>)}</select></div>
+                    <div className="grid grid-cols-3 gap-2">{Object.entries(familyStats).map(([n,v])=>(<div key={n} className="bg-white p-3 rounded-2xl text-center shadow-sm border border-gray-50"><div className="text-[7px] text-gray-400 font-bold uppercase mb-1">{n}應付</div><div className="text-xs font-black text-indigo-600">${v.toFixed(0)}</div></div>))}</div>
+                    <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-50"><h3 className="text-xs font-black mb-4 flex items-center gap-2"><UtensilsCrossed size={14} className="text-indigo-500"/> 飲食時段分析</h3><div className="space-y-4">{Object.entries(mealStats).map(([s,v])=>{const total=Object.values(mealStats).reduce((a,b)=>a+b,0); const percent=total>0?((v/total)*100).toFixed(0):0; return (<div key={s} className="space-y-1"><div className="flex justify-between text-[8px] font-bold"><span>{s}</span><span className="text-indigo-600">${v} ({percent}%)</span></div><div className="h-1 bg-gray-50 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{width:`${percent}%`}}></div></div></div>)})}</div></div>
+                </div>
+            );
+        };
+
+        // 7. Annual Plan
+        const AnnualPlan = ({ user, db, showToast, geminiKey }) => {
+            const [content, setContent] = useState('');
+            const [isAiLoading, setIsAiLoading] = useState(false);
+            const [aiSuggestion, setAiSuggestion] = useState('');
+            const appId = DEFAULT_APP_ID;
+
+            useEffect(() => { 
+                if (!user || !db) return; 
+                return db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('annual_plan').doc('current')
+                    .onSnapshot((doc) => { if (doc.exists) setContent(doc.data().content || ''); }); 
+            }, [user, db]);
+
+            const handleAiCoach = async () => {
+                setIsAiLoading(true); showToast("✨ AI 教練正在思考...");
+                const prompt = `你是我的 AI 人生教練。這是我的 2026 年度計畫：「${content}」。請給我簡短的 3 個具體行動建議。`;
+                const result = await callGemini(geminiKey, prompt, "你是一個充滿智慧與正能量的人生導師");
+                setAiSuggestion(result); setIsAiLoading(false);
+            };
+
+            return (
+                <div className="h-full flex flex-col pb-24 md:pb-0 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-black text-gray-800">2026 人生腳本</h2>
+                        <div className="flex gap-2">
+                            <button onClick={handleAiCoach} disabled={isAiLoading || !content} className="bg-purple-100 text-purple-600 px-4 py-2 rounded-2xl text-[10px] font-black shadow-sm flex items-center gap-1">{isAiLoading ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12}/>} AI 教練</button>
+                            <button onClick={async()=>{await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('annual_plan').doc('current').set({ content, updatedAt: Date.now() }, { merge: true }); showToast('已儲存');}} className="bg-indigo-600 text-white px-5 py-2 rounded-2xl text-[10px] font-black shadow-md">儲存</button>
+                        </div>
+                    </div>
+                    {aiSuggestion && <div className="bg-purple-50 p-4 rounded-[2rem] border border-purple-100 mb-4"><div className="flex justify-between mb-2"><h3 className="text-xs font-black text-purple-800">Coach Suggestions</h3><button onClick={()=>setAiSuggestion('')}><X size={14}/></button></div><p className="text-xs text-purple-900 leading-relaxed font-bold">{aiSuggestion}</p></div>}
+                    <textarea className="flex-1 p-6 bg-white rounded-[2.5rem] shadow-sm outline-none resize-none text-sm text-gray-700 leading-relaxed font-medium border border-gray-50" placeholder="寫下您的夢想..." value={content} onChange={e=>setContent(e.target.value)}/>
+                </div>
+            );
+        };
+
+        const WeatherWidget = () => (
+          <div className="bg-white rounded-2xl p-4 shadow-sm mb-4 border border-gray-50">
+            <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm"><Sun className="text-yellow-500" size={16}/> 天氣預報</h3></div>
+            <div className="space-y-1">{[{ city: '台南市', temp: 28, desc: '多雲' }, { city: '高雄市', temp: 29, desc: '晴' }].map(c => <div key={c.city} className="flex justify-between py-2 border-b border-gray-100 last:border-0 text-xs"><span className="font-bold text-gray-700">{c.city}</span><span className="text-gray-500">{c.desc}</span><span className="font-bold text-orange-500">{c.temp}°</span></div>)}</div>
+          </div>
+        );
+
+        // --- App Component ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('home');
+            const [user, setUser] = useState(null);
+            const [db, setDb] = useState(null);
+            const [toast, setToast] = useState(null);
+            
+            const [fbConfigStr, setFbConfigStr] = useState(() => localStorage.getItem('fb_config') || JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2));
+            const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gemini_key') || 'AIzaSyC6mOZd-_wWykvfLfr3IlpSKkuvsgZv9y4');
+            const [dbStatus, setDbStatus] = useState('disconnected');
+            const [dbError, setDbError] = useState('');
+
+            // Auth States
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+
+            useEffect(() => {
+                const initFirebase = async () => {
+                    setDbStatus('connecting');
+                    setDbError('');
+                    
+                    // 嘗試取得 Config：1. LocalStorage 2. 全域變數
+                    let configToUse = null;
+                    try { 
+                        if (fbConfigStr) configToUse = JSON.parse(fbConfigStr);
+                        else if (typeof __firebase_config !== 'undefined') configToUse = JSON.parse(__firebase_config);
+                    } catch(e) {}
+
+                    if (configToUse) {
+                        try {
+                            if (!firebase.apps.length) firebase.initializeApp(configToUse);
+                            const auth = firebase.auth();
+                            const firestore = firebase.firestore();
+                            setDb(firestore);
+                            
+                            // Check local persistence first, then try tokens
+                            auth.onAuthStateChanged((u) => {
+                                setUser(u);
+                                if (u) setDbStatus('connected');
+                                else setDbStatus('disconnected');
+                            });
+
+                            // Only if no user is logged in, try default anonymous
+                            if (!auth.currentUser) {
+                                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                    try { await auth.signInWithCustomToken(__initial_auth_token); } 
+                                    catch (e) { await auth.signInAnonymously(); }
+                                } else {
+                                    // Don't force anonymous if user might want to login via email
+                                    // But for "Personal OS" feel, default to anon is okay, they can switch in settings.
+                                    await auth.signInAnonymously();
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Firebase Init Error:", err);
+                            setDbStatus('error');
+                            setDbError(err.message);
+                        }
+                    } else { setDbStatus('disconnected'); }
+                };
+                initFirebase();
+            }, [fbConfigStr]);
+
+            const handleAuth = async () => {
+                try {
+                    if (authMode === 'login') {
+                        await firebase.auth().signInWithEmailAndPassword(email, password);
+                        showToast('登入成功！');
+                    } else {
+                        await firebase.auth().createUserWithEmailAndPassword(email, password);
+                        showToast('註冊成功！');
+                    }
+                    setEmail(''); setPassword('');
+                } catch (e) {
+                    alert(e.message);
+                }
+            };
+
+            const handleGoogleLogin = async () => {
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    await firebase.auth().signInWithPopup(provider);
+                    showToast('Google 登入成功！');
+                } catch (e) {
+                    console.error("Google Login Error:", e);
+                    alert("Google 登入失敗: " + e.message + "\n\n請確認：\n1. Firebase Console 已啟用 Google 登入。\n2. 目前的網域已加入 Firebase 的 Authorized Domains。");
+                }
+            };
+
+            const showToast = (message, type = 'success') => setToast({ message, type });
+
+            const renderContent = () => {
+                if (activeTab === 'settings') {
+                    return (
+                        <div className="bg-white p-6 rounded-[2rem] shadow-sm max-w-xl mx-auto space-y-6 animate-in fade-in">
+                            <h2 className="text-xl font-bold flex items-center gap-2"><Settings className="w-5 h-5" /> 系統設定</h2>
+                            
+                            {/* Account Section */}
+                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                                <h3 className="font-bold text-indigo-800 mb-3 flex items-center gap-2"><Users size={16}/> 雲端帳號同步</h3>
+                                <div className="text-xs text-indigo-600 mb-4">
+                                    {user?.isAnonymous ? '⚠️ 目前為匿名訪客模式，更換裝置資料將會遺失。請註冊/登入以同步資料。' : `✅ 已登入：${user?.email || user?.displayName || 'Google User'}`}
+                                </div>
+                                
+                                {(!user || user.isAnonymous) && (
+                                    <div className="space-y-3">
+                                        <button onClick={handleGoogleLogin} className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors">
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11c-.22-.66-.35-1.36-.35-2.11s.13-1.45.35-2.11V7.05H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.95l3.66-2.84z"/><path fill="#EA4335" d="M12 4.62c1.61 0 3.1.56 4.28 1.69l3.21-3.21C17.5 1.28 14.97 0 12 0 7.7 0 3.99 2.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                                            使用 Google 帳號登入
+                                        </button>
+                                        
+                                        <div className="relative flex py-2 items-center">
+                                            <div className="flex-grow border-t border-indigo-200"></div>
+                                            <span className="flex-shrink-0 mx-4 text-gray-400 text-[10px]">或使用 Email</span>
+                                            <div className="flex-grow border-t border-indigo-200"></div>
+                                        </div>
+
+                                        <div className="flex bg-white rounded-lg p-1 border border-indigo-100">
+                                            <button onClick={()=>setAuthMode('login')} className={`flex-1 py-2 text-xs font-bold rounded transition-all ${authMode==='login'?'bg-indigo-600 text-white':'text-gray-400'}`}>登入</button>
+                                            <button onClick={()=>setAuthMode('signup')} className={`flex-1 py-2 text-xs font-bold rounded transition-all ${authMode==='signup'?'bg-indigo-600 text-white':'text-gray-400'}`}>註冊</button>
+                                        </div>
+                                        <input className="w-full p-3 rounded-xl border text-xs outline-none focus:border-indigo-500 transition-colors" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
+                                        <input className="w-full p-3 rounded-xl border text-xs outline-none focus:border-indigo-500 transition-colors" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} />
+                                        <button onClick={handleAuth} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg hover:bg-indigo-700 transition-colors">{authMode==='login'?'登入並同步':'註冊新帳號'}</button>
+                                        <p className="text-[10px] text-gray-400 text-center">請確認 Firebase Console 已啟用 Email/Password 登入</p>
+                                    </div>
+                                )}
+                                
+                                {user && !user.isAnonymous && (
+                                    <button onClick={()=>firebase.auth().signOut()} className="w-full bg-white border border-red-200 text-red-500 py-3 rounded-xl font-bold text-xs mt-2 hover:bg-red-50 transition-colors">登出</button>
+                                )}
+                            </div>
+
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><CloudLightning size={16}/> API 連接設定</h3>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Firebase Config JSON</label>
+                                        <textarea rows={6} value={fbConfigStr} onChange={(e) => {setFbConfigStr(e.target.value); localStorage.setItem('fb_config', e.target.value);}} className="w-full border border-gray-300 rounded-xl p-3 font-mono text-[10px]" placeholder='{"apiKey": "...", ...}' />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Gemini API Key</label>
+                                        <input type="password" value={geminiKey} onChange={(e) => {setGeminiKey(e.target.value); localStorage.setItem('gemini_key', e.target.value);}} className="w-full border border-gray-300 rounded-xl p-3 text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => setActiveTab('home')} className="w-full bg-blue-600 text-white py-3 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-colors">完成設定並返回</button>
+                        </div>
+                    );
+                }
+
+                if (!user && dbStatus !== 'error') return <div className="flex flex-col items-center justify-center h-full space-y-4"><Loader2 className="animate-spin text-indigo-500" size={40}/><div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Connecting...</div><button onClick={()=>setActiveTab('settings')} className="text-xs text-blue-500 underline">前往設定</button></div>;
+                if (dbStatus === 'error') return <div className="flex flex-col items-center justify-center h-full text-red-500"><AlertCircle size={40} className="mb-2"/><div>連線錯誤</div><div className="text-xs mt-2">{dbError}</div><button onClick={()=>setActiveTab('settings')} className="mt-4 bg-gray-100 px-4 py-2 rounded-xl text-xs text-gray-700">檢查設定</button></div>;
+
+                switch(activeTab) {
+                  case 'home': return <Dashboard user={user} db={db} showToast={showToast} geminiKey={geminiKey} />;
+                  case 'commute': return <CommuteTracker user={user} db={db} showToast={showToast} />;
+                  case 'calendar': return <CalendarView user={user} db={db} showToast={showToast} />;
+                  case 'expense': return <ExpenseTracker user={user} db={db} showToast={showToast} geminiKey={geminiKey} />;
+                  case 'report': return <ExpenseReport user={user} db={db} />;
+                  case 'todo': return <TodoManager user={user} db={db} showToast={showToast} geminiKey={geminiKey} />;
+                  case 'plan': return <AnnualPlan user={user} db={db} showToast={showToast} geminiKey={geminiKey} />;
+                  default: return null;
+                }
+            };
+
+            const NavButton = ({ active, onClick, icon: Icon, label }) => (
+              <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all duration-500 ${active ? 'text-indigo-600' : 'text-gray-300'}`}>
+                <div className={`p-2.5 rounded-2xl transition-all duration-500 ${active ? 'bg-indigo-50 shadow-sm scale-110' : 'hover:bg-gray-50'}`}><Icon size={active ? 18 : 16} strokeWidth={active ? 3 : 2} /></div>
+                <span className={`text-[7px] font-black tracking-tighter ${active ? 'opacity-100' : 'opacity-0'}`}>{label}</span>
+              </button>
+            );
+
+            const DesktopNavButton = ({ active, onClick, icon: Icon, label }) => (
+              <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50'}`}>
+                 <Icon size={20} strokeWidth={active?2.5:2} />
+                 <span className="text-xs font-bold tracking-wide">{label}</span>
+              </button>
+            );
+
+            return (
+                <div className="flex h-screen w-full bg-slate-50 font-sans text-gray-900 selection:bg-indigo-100 overflow-hidden">
+                  {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                  
+                  {/* Desktop Sidebar */}
+                  <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-100 p-6 justify-between">
+                     <div className="space-y-8">
+                        <div className="px-2">
+                            <h1 className="text-xl font-black text-indigo-600 tracking-tighter flex items-center gap-2"><Briefcase size={24}/> Personal OS</h1>
+                            <p className="text-[9px] font-bold text-gray-400 mt-1 pl-8">Desktop Edition</p>
+                        </div>
+                        <nav className="space-y-2">
+                            <DesktopNavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={Home} label="總覽 Dashboard" />
+                            <DesktopNavButton active={activeTab === 'commute'} onClick={() => setActiveTab('commute')} icon={Train} label="通勤打卡" />
+                            <DesktopNavButton active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={CalendarIcon} label="行程日曆" />
+                            <DesktopNavButton active={activeTab === 'expense'} onClick={() => setActiveTab('expense')} icon={DollarSign} label="記帳管理" />
+                            <DesktopNavButton active={activeTab === 'report'} onClick={() => setActiveTab('report')} icon={PieChart} label="數據分析" />
+                            <DesktopNavButton active={activeTab === 'todo'} onClick={() => setActiveTab('todo')} icon={CheckSquare} label="待辦事項" />
+                            <DesktopNavButton active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} icon={BookOpen} label="年度計畫" />
+                        </nav>
+                     </div>
+                     <div className="flex flex-col gap-2">
+                         <button onClick={() => setActiveTab('settings')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 p-2"><Settings size={14}/> 系統設定</button>
+                         <div className="p-4 bg-slate-50 rounded-2xl text-[10px] text-gray-400 text-center">v3.5 Interactive AI</div>
+                     </div>
+                  </aside>
+
+                  {/* Main Content */}
+                  <main className="flex-1 flex flex-col relative overflow-hidden">
+                     <div className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8">
+                        <div className="max-w-3xl mx-auto w-full h-full">
+                            {renderContent()}
+                        </div>
+                     </div>
+                     
+                     {/* Mobile Nav */}
+                     <nav className="md:hidden fixed bottom-0 w-full bg-white/90 backdrop-blur-xl border-t border-gray-100 px-4 py-4 flex justify-between items-center z-50 rounded-t-[3rem] shadow-[0_-10px_50px_rgba(0,0,0,0.05)]">
+                       <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={Home} label="總覽" />
+                       <NavButton active={activeTab === 'commute'} onClick={() => setActiveTab('commute')} icon={Train} label="通勤" />
+                       <NavButton active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={CalendarIcon} label="行程" />
+                       <NavButton active={activeTab === 'expense'} onClick={() => setActiveTab('expense')} icon={DollarSign} label="記帳" />
+                       <NavButton active={activeTab === 'report'} onClick={() => setActiveTab('report')} icon={PieChart} label="分析" />
+                       <NavButton active={activeTab === 'todo'} onClick={() => setActiveTab('todo')} icon={CheckSquare} label="待辦" />
+                       <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={Settings} label="設定" />
+                    </nav>
+                  </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
