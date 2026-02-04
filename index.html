@@ -3,1167 +3,537 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 易經命理大師 - 雲端解惑</title>
-    <!-- Tailwind CSS -->
+    <title>Personal OS v5.8 (Excel Paste Fixed)</title>
+    
+    <!-- 1. 核心套件 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase SDKs (Compat version) -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics-compat.js"></script>
-    
-    <!-- HTML2Canvas -->
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    
+    <!-- 2. Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!-- 3. Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; overflow: hidden; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
-        body {
-            font-family: 'Noto Serif TC', serif;
-            background-color: #Fdfbf7;
-            background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
+        /* 漂亮的捲軸 */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .animate-shake {
-            animation: shake 0.3s ease-in-out;
-        }
-
-        .book-cover {
-            background: linear-gradient(135deg, #292524 0%, #1c1917 100%);
-            box-shadow: 
-                -5px 0 10px rgba(0,0,0,0.5),
-                inset 2px 2px 5px rgba(255,255,255,0.1),
-                10px 10px 20px rgba(0,0,0,0.3);
-            border-left: 8px solid #44403c;
-        }
-
-        .book-page {
-            background-color: #fff;
-            background-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.03) 5%, transparent 10%),
-                            linear-gradient(#e5e5e5 1px, transparent 1px);
-            background-size: 100% 100%, 100% 24px;
-            box-shadow: 1px 2px 5px rgba(0,0,0,0.1);
-            position: relative;
-        }
-        
-        .book-page::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            right: 0;
-            border-width: 0 12px 12px 0;
-            border-style: solid;
-            border-color: #f5f5f4 #f5f5f4 #d6d3d1 #d6d3d1; 
-            box-shadow: -1px 1px 2px rgba(0,0,0,0.1);
-        }
-
-        .vertical-text {
-            writing-mode: vertical-rl;
-            text-orientation: upright;
-            letter-spacing: 0.2em;
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        /* 表格輸入框焦點樣式 */
+        .table-input:focus { background-color: #e0e7ff; outline: 2px solid #6366f1; outline-offset: -2px; z-index: 10; position: relative; }
+        th { white-space: nowrap; }
+        /* 表頭焦點 */
+        th:focus { background-color: #e0e7ff; color: #4f46e5; outline: 2px solid #6366f1; outline-offset: -2px; }
     </style>
 </head>
-<body class="text-stone-800 min-h-screen selection:bg-amber-200 flex flex-col items-center relative">
+<body class="text-gray-900 overflow-hidden">
+    <div id="root" class="h-screen w-full relative"></div>
 
-    <div class="max-w-2xl w-full px-6 py-8 flex-grow flex flex-col">
-        
-        <!-- View 0: Cover (封面) -->
-        <div id="view-cover" class="fade-in flex flex-col items-center justify-center flex-grow py-12 relative">
-            <div class="book-cover w-64 h-80 rounded-r-xl rounded-l-sm flex flex-col items-center justify-center text-amber-50 mb-10 relative overflow-hidden transition-transform hover:scale-[1.02] duration-500 cursor-pointer" onclick="enterApp()">
-                <div class="absolute top-4 right-4 opacity-20">
-                    <i data-lucide="cloud" class="w-24 h-24"></i>
-                </div>
-                <div class="border-2 border-amber-500/30 p-1 mb-6">
-                    <div class="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center text-amber-100 text-3xl font-bold border border-amber-500/50">
-                        易
-                    </div>
-                </div>
-                <h1 class="text-3xl font-bold tracking-[0.3em] text-center border-t border-b border-amber-500/20 py-4 w-4/5">易經解惑</h1>
-                <p class="mt-6 text-xs text-stone-400 tracking-widest uppercase">The Book of Changes</p>
-            </div>
-            
-            <div class="flex gap-4">
-                <button onclick="enterApp()" class="group relative px-6 py-3 bg-stone-900 text-amber-50 rounded-full font-bold shadow-xl hover:bg-stone-800 transition-all flex items-center gap-2">
-                    <span class="tracking-widest">開啟智慧之門</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
-                </button>
-                <button onclick="showHistorySearch()" class="px-4 py-3 bg-white text-stone-700 border border-stone-300 rounded-full font-bold shadow-md hover:bg-stone-50 transition-all flex items-center gap-2" title="查詢歷史紀錄">
-                    <i data-lucide="history" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">我的紀錄</span>
-                </button>
-            </div>
-            <p class="mt-6 text-stone-400 text-xs">誠心問卦 · 隨機翻書 · AI解惑</p>
-            
-            <!-- 管理員入口 -->
-            <button onclick="showAdminLogin()" class="absolute bottom-0 right-0 p-2 text-stone-300 hover:text-stone-600 transition-colors opacity-50 hover:opacity-100" title="管理員入口">
-                <i data-lucide="lock" class="w-4 h-4"></i>
-            </button>
-        </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, Component } = React;
 
-        <!-- View 1: Input (輸入資料) -->
-        <div id="view-input" class="hidden fade-in space-y-6 pt-4">
-            <div class="text-center mb-6 flex items-center justify-center gap-3 opacity-60">
-                <div class="w-8 h-8 bg-stone-900 rounded-full flex items-center justify-center text-white text-sm font-bold">易</div>
-                <span class="font-bold tracking-widest text-stone-900">雲端易經命理師</span>
-            </div>
-
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 space-y-5">
-                <div class="grid grid-cols-2 gap-4 pb-4 border-b border-stone-100">
-                    <div class="col-span-2 sm:col-span-1 space-y-1">
-                        <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider">姓名 (必填)</label>
-                        <input type="text" id="user-name" placeholder="您的稱呼" 
-                            class="w-full p-2 bg-stone-50 border border-stone-200 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition">
-                    </div>
-                    
-                    <div class="col-span-2 sm:col-span-1 space-y-1">
-                        <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-1">
-                            查詢密碼 <span class="text-stone-300 font-normal normal-case">(選填)</span>
-                        </label>
-                        <input type="text" id="user-password" placeholder="設定密碼以保護紀錄" 
-                            class="w-full p-2 bg-stone-50 border border-stone-200 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition">
-                    </div>
-
-                    <div class="col-span-1 space-y-1">
-                        <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider">性別</label>
-                        <select id="user-gender" class="w-full p-2 bg-stone-50 border border-stone-200 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition">
-                            <option value="男">男</option>
-                            <option value="女">女</option>
-                            <option value="其他">其他</option>
-                        </select>
-                    </div>
-                    <div class="col-span-1 space-y-1">
-                        <label class="block text-xs font-bold text-stone-500 uppercase tracking-wider">虛歲</label>
-                        <input type="number" id="user-age" placeholder="歲數" min="1" max="120"
-                            class="w-full p-2 bg-stone-50 border border-stone-200 rounded focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition">
-                    </div>
-                </div>
-
-                <div class="space-y-2">
-                    <label class="block text-stone-700 font-bold text-lg flex items-center gap-2">
-                        <i data-lucide="feather" class="w-5 h-5 text-amber-600"></i>
-                        請問您想測算的事情是？
-                    </label>
-                    <textarea id="question-input"
-                        placeholder="在此寫下您的疑惑...&#10;例如：最近的工作運勢如何？這段感情會有結果嗎？"
-                        class="w-full h-32 p-4 bg-stone-50 rounded-lg border border-stone-200 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition resize-none text-lg leading-relaxed"></textarea>
-                </div>
-            </div>
-            
-            <div class="flex gap-3">
-                 <button onclick="switchView('view-cover')" class="px-6 py-4 rounded-lg bg-stone-200 text-stone-600 font-bold hover:bg-stone-300 transition-colors">
-                    返回
-                </button>
-                <button onclick="startDivination()" id="start-btn"
-                    class="flex-1 py-4 rounded-lg text-lg font-bold tracking-widest transition-all transform flex items-center justify-center gap-2 bg-stone-800 text-white shadow-lg hover:bg-stone-700 active:scale-[0.98] cursor-pointer">
-                    <i data-lucide="sparkles"></i>
-                    開始冥想求卦
-                </button>
-            </div>
-        </div>
-
-        <!-- View 2: Meditating -->
-        <div id="view-meditating" class="hidden fade-in text-center py-8">
-            <h2 class="text-xl text-stone-600 mb-2 font-bold">心中默念問題</h2>
-            <p class="text-stone-400 text-sm mb-10">點擊按鈕隨機翻閱古籍</p>
-            
-            <div class="flex justify-center gap-3 sm:gap-6 mb-12">
-                <div id="numbers-container" class="flex gap-3 sm:gap-6"></div>
-            </div>
-
-            <button onclick="flipPage()" id="flip-btn"
-                class="px-10 py-4 bg-stone-800 text-white rounded-lg shadow-xl hover:bg-stone-700 hover:-translate-y-1 transition-all flex items-center gap-3 mx-auto border-b-4 border-stone-950">
-                <i data-lucide="book-open"></i>
-                <span id="flip-btn-text" class="tracking-widest">翻開第一頁</span>
-            </button>
-            
-            <p id="flip-hint" class="mt-6 text-amber-700/60 text-xs animate-pulse hidden">正在快速翻閱書頁...</p>
-        </div>
-
-        <!-- View 3: Result -->
-        <div id="view-result" class="hidden fade-in pb-20">
-            <!-- Capture Area Start -->
-            <div id="result-capture-area" class="bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden mb-6 relative">
-                <!-- Watermark -->
-                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none select-none z-0">
-                    <i data-lucide="cloud" class="w-96 h-96"></i>
-                </div>
-
-                <!-- Result Header -->
-                <div class="bg-stone-900 text-amber-50 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span id="result-user-info" class="px-2 py-0.5 rounded bg-stone-700 text-amber-200 text-[10px] uppercase tracking-wider">
-                                求卜者資訊
-                            </span>
-                        </div>
-                        <h2 class="text-xs text-stone-400 uppercase tracking-widest mb-1">您的問題</h2>
-                        <p id="result-question" class="text-lg font-bold line-clamp-2">...</p>
-                    </div>
-                    <div class="text-right flex-shrink-0">
-                        <div id="result-hex-name" class="text-3xl font-bold font-serif">...</div>
-                        <div id="result-sentiment" class="text-xs text-amber-400 mt-1 tracking-widest">...</div>
-                    </div>
-                </div>
-
-                <!-- Hexagram Visual -->
-                <div class="p-8 flex flex-col md:flex-row gap-8 items-center justify-center border-b border-stone-100 bg-stone-50/90 relative z-10">
-                    <div class="flex flex-col items-center gap-2">
-                        <div class="flex flex-col gap-1 w-32 p-4 bg-white rounded shadow-sm border border-stone-200">
-                            <div id="upper-img" class="text-center text-5xl mb-2 text-stone-800 h-14 flex items-center justify-center font-serif leading-none">☰</div>
-                            <div id="upper-name" class="text-center text-xs text-stone-500 border-t border-stone-100 pt-2 tracking-widest">上卦</div>
-                        </div>
-                        <div class="flex flex-col gap-1 w-32 p-4 bg-white rounded shadow-sm border border-stone-200">
-                            <div id="lower-img" class="text-center text-5xl mb-2 text-stone-800 h-14 flex items-center justify-center font-serif leading-none">☷</div>
-                            <div id="lower-name" class="text-center text-xs text-stone-500 border-t border-stone-100 pt-2 tracking-widest">下卦</div>
-                        </div>
-                    </div>
-
-                    <div class="flex-1 w-full">
-                        <div class="bg-white p-5 rounded-lg border border-stone-200 shadow-sm">
-                            <h3 class="font-bold text-stone-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-                                <i data-lucide="scroll" class="w-4 h-4 text-amber-600"></i> 
-                                卦象數理
-                            </h3>
-                            <div id="log-container" class="space-y-3"></div>
-                            
-                            <!-- Static Description -->
-                            <div id="static-desc" class="mt-4 pt-4 border-t border-stone-100 text-stone-600 text-sm leading-relaxed"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- AI Analysis Area -->
-                <div class="p-8 bg-white min-h-[300px] relative z-10">
-                    <div id="ai-loading" class="flex flex-col items-center justify-center py-10 space-y-6">
-                        <div class="relative w-16 h-16">
-                            <div class="absolute inset-0 border-4 border-stone-100 rounded-full"></div>
-                            <div class="absolute inset-0 border-4 border-amber-600 rounded-full border-t-transparent animate-spin"></div>
-                            <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-stone-400">AI</div>
-                        </div>
-                        <p class="text-stone-500 animate-pulse tracking-widest text-sm">Google AI 正在解析天機...</p>
-                    </div>
-                    
-                    <div id="ai-content" class="hidden space-y-5 text-stone-700 leading-loose text-justify"></div>
-                </div>
-                
-                <div class="bg-stone-900 text-stone-400 text-[10px] p-2 text-center relative z-10">
-                    AI 易經命理大師 · 雲端解惑
-                </div>
-            </div>
-            <!-- Capture Area End -->
-
-            <!-- Actions Bar (Download) -->
-             <div class="flex gap-3 justify-center mb-6">
-                 <button onclick="downloadResultImage()" class="px-6 py-2 bg-amber-600 text-white rounded-full font-bold shadow-lg hover:bg-amber-700 transition flex items-center gap-2">
-                    <i data-lucide="download" class="w-4 h-4"></i> 下載收藏
-                </button>
-             </div>
-
-            <!-- Feedback Section -->
-            <div id="feedback-section" class="hidden p-6 bg-amber-50 rounded-xl border border-amber-100 mb-6">
-                <h3 class="text-center font-bold text-stone-700 mb-3">您對這次的解析滿意嗎？</h3>
-                <div class="flex justify-center gap-2 mb-2">
-                    <button onclick="rateService(1)" class="star-btn text-3xl grayscale hover:grayscale-0 hover:scale-110 transition p-1" data-val="1">😡</button>
-                    <button onclick="rateService(2)" class="star-btn text-3xl grayscale hover:grayscale-0 hover:scale-110 transition p-1" data-val="2">😕</button>
-                    <button onclick="rateService(3)" class="star-btn text-3xl grayscale hover:grayscale-0 hover:scale-110 transition p-1" data-val="3">😐</button>
-                    <button onclick="rateService(4)" class="star-btn text-3xl grayscale hover:grayscale-0 hover:scale-110 transition p-1" data-val="4">🙂</button>
-                    <button onclick="rateService(5)" class="star-btn text-3xl grayscale hover:grayscale-0 hover:scale-110 transition p-1" data-val="5">😍</button>
-                </div>
-                <!-- Instant Save Message -->
-                <div id="rating-saved-msg" class="text-center text-xs text-green-600 font-bold h-4 mb-2 opacity-0 transition-opacity">
-                    ✓ 已儲存評分
-                </div>
-                
-                <div id="feedback-form" class="hidden space-y-3 animate-fade-in">
-                     <textarea id="feedback-text" placeholder="補充回饋：您覺得準確嗎？還有什麼建議？" class="w-full p-3 rounded border border-stone-200 text-sm focus:ring-1 focus:ring-amber-500 outline-none"></textarea>
-                     <button onclick="submitFeedbackText()" class="w-full py-2 bg-stone-700 text-white rounded text-sm hover:bg-stone-600">送出補充回饋</button>
-                </div>
-                <div id="feedback-thanks" class="hidden text-center text-stone-500 text-sm py-2">感謝您的寶貴意見！</div>
-            </div>
-
-            <!-- Footer Action -->
-            <div class="flex justify-center gap-4 text-center">
-                 <button onclick="resetApp('view-cover')" class="px-6 py-3 bg-stone-100 border border-stone-300 hover:bg-stone-200 text-stone-600 rounded-lg transition-colors inline-flex items-center gap-2 shadow-sm">
-                    <i data-lucide="home" class="w-4 h-4"></i> 返回首頁
-                </button>
-                 <button onclick="resetApp('view-input')" class="px-8 py-3 bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 rounded-lg transition-colors inline-flex items-center gap-2 shadow-sm">
-                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> 再問一事
-                </button>
-            </div>
-        </div>
-
-        <!-- View 4: Admin Login Modal -->
-        <div id="admin-login-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center fade-in">
-            <div class="bg-white p-6 rounded-xl shadow-2xl w-80 text-center">
-                <h3 class="font-bold text-stone-800 mb-4 text-lg">管理員登入</h3>
-                <input type="password" id="admin-pwd" placeholder="請輸入密碼" class="w-full p-2 border border-stone-300 rounded mb-4 text-center tracking-widest">
-                <div class="flex gap-2">
-                    <button onclick="closeAdminLogin()" class="flex-1 py-2 bg-stone-200 rounded text-stone-600">取消</button>
-                    <button onclick="checkAdminLogin()" class="flex-1 py-2 bg-stone-800 text-white rounded">確認</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- View 5: Admin Dashboard -->
-        <div id="view-admin" class="hidden fade-in w-full max-w-5xl">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-stone-800">🔮 命理服務後台</h2>
-                <button onclick="exitAdmin()" class="px-4 py-2 bg-stone-200 rounded hover:bg-stone-300 flex items-center gap-2">
-                    <i data-lucide="log-out" class="w-4 h-4"></i> 登出
-                </button>
-            </div>
-
-            <div class="bg-white rounded-xl shadow border border-stone-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm whitespace-nowrap">
-                        <thead class="bg-stone-100 text-stone-600 font-bold border-b border-stone-200">
-                            <tr>
-                                <th class="p-4">時間</th>
-                                <th class="p-4">使用者</th>
-                                <th class="p-4 w-1/3 min-w-[200px]">問題</th>
-                                <th class="p-4">卦象</th>
-                                <th class="p-4 text-center">滿意度</th>
-                                <th class="p-4">功能</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-table-body" class="divide-y divide-stone-100">
-                            <!-- JS Injected -->
-                        </tbody>
-                    </table>
-                </div>
-                <div id="admin-loading" class="p-8 text-center text-stone-500">正在載入資料...</div>
-            </div>
-        </div>
-
-        <!-- Detail Modal (Shared by Admin & History) -->
-        <div id="detail-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center fade-in p-4">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative">
-                <button onclick="closeDetailModal()" class="absolute top-4 right-4 p-2 bg-stone-100 rounded-full hover:bg-stone-200 z-10">
-                    <i data-lucide="x" class="w-5 h-5 text-stone-600"></i>
-                </button>
-
-                <div class="overflow-y-auto p-8 custom-scrollbar">
-                    <h3 class="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2 border-b border-stone-200 pb-4">
-                        <i data-lucide="file-text" class="w-5 h-5 text-amber-600"></i> 紀錄詳情
-                    </h3>
-                    
-                    <div class="space-y-6">
-                        <div class="grid grid-cols-2 gap-4 text-sm bg-stone-50 p-4 rounded-lg">
-                            <div><span class="text-stone-500">時間：</span><span id="detail-time" class="font-bold"></span></div>
-                            <div><span class="text-stone-500">求卜者：</span><span id="detail-user" class="font-bold"></span></div>
-                            <div class="col-span-2"><span class="text-stone-500">問題：</span><p id="detail-question" class="font-bold text-lg mt-1"></p></div>
-                        </div>
-
-                        <div class="flex items-center gap-4 bg-stone-50 p-4 rounded-lg border-l-4 border-amber-600">
-                            <div class="text-3xl font-serif text-stone-800" id="detail-hex-name"></div>
-                            <div class="text-stone-500 text-sm flex-1" id="detail-hex-nums"></div>
-                        </div>
-
-                        <div>
-                            <h4 class="font-bold text-stone-700 mb-2">AI 完整解析</h4>
-                            <div id="detail-analysis" class="text-stone-600 leading-loose text-justify text-sm p-4 border border-stone-100 rounded-lg"></div>
-                        </div>
-
-                        <div class="border-t border-stone-100 pt-4 mt-4">
-                            <h4 class="font-bold text-stone-700 mb-2">回饋紀錄</h4>
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-stone-500 text-sm">評分：</span>
-                                <span id="detail-rating"></span>
-                            </div>
-                            <div class="bg-amber-50 p-3 rounded text-sm text-stone-600 italic">
-                                <span class="text-stone-400 not-italic">留言：</span> <span id="detail-feedback"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- View 6: User History Search -->
-        <div id="view-history" class="hidden fade-in w-full max-w-2xl">
-            <div class="bg-white rounded-xl shadow-xl border border-stone-200 p-6 min-h-[400px]">
-                <div class="flex justify-between items-center mb-6 pb-4 border-b border-stone-100">
-                    <h2 class="text-xl font-bold text-stone-800 flex items-center gap-2">
-                        <i data-lucide="history" class="w-5 h-5 text-amber-600"></i>
-                        我的歷史紀錄
-                    </h2>
-                    <button onclick="switchView('view-cover')" class="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-600">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
-
-                <div class="flex flex-col gap-3 mb-6">
-                    <input type="text" id="history-search-name" placeholder="請輸入求卜時的姓名" class="p-3 bg-stone-50 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500/50">
-                    <div class="flex gap-2">
-                        <input type="password" id="history-search-pwd" placeholder="請輸入查詢密碼 (若無設定可留空)" class="flex-1 p-3 bg-stone-50 border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500/50">
-                        <button onclick="searchHistory()" class="px-6 bg-stone-800 text-white rounded-lg font-bold hover:bg-stone-700 w-24">查詢</button>
-                    </div>
-                    <p class="text-xs text-stone-400">※ 忘記密碼請聯繫管理員</p>
-                </div>
-
-                <div id="history-loading" class="hidden text-center py-10 text-stone-400">
-                    <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto mb-2"></i>
-                    查詢中...
-                </div>
-
-                <div id="history-list" class="space-y-4">
-                    <div class="text-center py-10 text-stone-400 text-sm">
-                        輸入資料後開始查詢
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- Application Logic -->
-    <script>
-        // --- 1. Constants & Data ---
-        const TRIGRAMS = {
-            1: { name: '乾', nature: '天', image: '☰', meaning: '剛健', element: '金' },
-            2: { name: '兌', nature: '澤', image: '☱', meaning: '喜悅', element: '金' },
-            3: { name: '離', nature: '火', image: '☲', meaning: '依附', element: '火' },
-            4: { name: '震', nature: '雷', image: '☳', meaning: '震動', element: '木' },
-            5: { name: '巽', nature: '風', image: '☴', meaning: '進入', element: '木' },
-            6: { name: '坎', nature: '水', image: '☵', meaning: '險陷', element: '水' },
-            7: { name: '艮', nature: '山', image: '☶', meaning: '停止', element: '土' },
-            8: { name: '坤', nature: '地', image: '☷', meaning: '柔順', element: '土' },
-        };
-
-        const HEXAGRAM_DATA_FALLBACK = {
-            "1-1": { name: "乾為天", sentiment: "大吉", desc: "雙龍出海，剛健中正。目前運勢極強，但也需注意剛過易折，宜正道而行。" },
-            "8-8": { name: "坤為地", sentiment: "吉", desc: "厚德載物，包容萬象。運勢平穩，宜守不宜攻，順勢而為可獲益。" },
-            // Keeping it short
-        };
-
-        const generateGenericInterpretation = (upper, lower) => {
-          const natureUpper = TRIGRAMS[upper].nature;
-          const natureLower = TRIGRAMS[lower].nature;
-          const meaningUpper = TRIGRAMS[upper].meaning;
-          const meaningLower = TRIGRAMS[lower].meaning;
-          
-          return {
-            name: `${natureUpper}${natureLower}卦`,
-            sentiment: "中平",
-            desc: `上${natureUpper}下${natureLower}。外在表現為${meaningUpper}，內在基礎為${meaningLower}。${TRIGRAMS[upper].element}與${TRIGRAMS[lower].element}相遇，需觀察兩者屬性是否相生相剋來判斷吉凶。建議審時度勢。`
-          };
-        };
-
-        // --- 2. State ---
-        let state = {
-            step: 'cover',
-            question: '',
-            name: '',
-            password: '', // New password field
-            gender: '男',
-            age: '',
-            numbers: [null, null, null],
-            flipIndex: 0,
-            animationInterval: null,
-            user: null,
-            currentDocId: null 
-        };
-
-        let loadedDataCache = {};
-
-        // --- 3. Firebase Setup ---
-        const userFirebaseConfig = {
-            apiKey: "AIzaSyDSxmYDpme-iQgiNScEl10dKjYsK2ZX0vs",
-            authDomain: "livetest-9c9ba.firebaseapp.com",
-            projectId: "livetest-9c9ba",
-            storageBucket: "livetest-9c9ba.firebasestorage.app",
-            messagingSenderId: "362928232271",
-            appId: "1:362928232271:web:4923443483a575c89c173a",
-            measurementId: "G-D3JPLWXV0Z"
-        };
-
-        const configToUse = (typeof __firebase_config !== 'undefined' && __firebase_config) 
-                            ? JSON.parse(__firebase_config) 
-                            : userFirebaseConfig;
-
-        const app = firebase.initializeApp(configToUse);
-        if (typeof firebase.analytics === 'function') {
-            firebase.analytics();
+        // --- 0. 防當機保護罩 ---
+        class ErrorBoundary extends Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, errorInfo) { console.error("Error:", error, errorInfo); }
+            render() {
+                if (this.state.hasError) return <div className="p-6 text-center text-red-500 bg-red-50 rounded-2xl border border-red-200 m-4 shadow-sm">⚠️ 發生錯誤: {this.state.error?.message} <br/><button onClick={()=>window.location.reload()} className="mt-2 underline font-bold">重新整理</button></div>;
+                return this.props.children;
+            }
         }
 
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // --- 1. Icons ---
+        const SVG = ({ children, className, size = 24, onClick }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick}>
+                {children}
+            </svg>
+        );
 
-        async function initAuth() {
-            auth.onAuthStateChanged((user) => {
-                state.user = user;
-            });
+        const Icons = {
+            Menu: (p) => <SVG {...p}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></SVG>,
+            Home: (p) => <SVG {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></SVG>,
+            Train: (p) => <SVG {...p}><rect width="16" height="16" x="4" y="4" rx="2"/><path d="M4 10h16"/><path d="M12 4v8"/><path d="m8 22 1-3"/><path d="m15 19 1 3"/></SVG>,
+            Calendar: (p) => <SVG {...p}><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></SVG>,
+            Dollar: (p) => <SVG {...p}><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></SVG>,
+            Pie: (p) => <SVG {...p}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></SVG>,
+            Check: (p) => <SVG {...p}><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></SVG>,
+            Book: (p) => <SVG {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></SVG>,
+            Brief: (p) => <SVG {...p}><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></SVG>,
+            Map: (p) => <SVG {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></SVG>,
+            LogOut: (p) => <SVG {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></SVG>,
+            CheckC: (p) => <SVG {...p}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></SVG>,
+            Settings: (p) => <SVG {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.18-.08a2 2 0 0 0-2 0l-.45.26a2 2 0 0 0-.79 2.85l.18.31a2 2 0 0 1 0 2.36l-.18.31a2 2 0 0 0 .79 2.85l.45.26a2 2 0 0 0 2 0l.18-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.18.08a2 2 0 0 0 2 0l.45-.26a2 2 0 0 0 .79-2.85l-.18-.31a2 2 0 0 1 0-2.36l.18-.31a2 2 0 0 0-.79-2.85l-.45-.26a2 2 0 0 0-2 0l-.18.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></SVG>,
+            Loader: (p) => <SVG {...p} className={`animate-spin ${p.className || ''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></SVG>,
+            Sun: (p) => <SVG {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></SVG>,
+            Link: (p) => <SVG {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></SVG>,
+            Camera: (p) => <SVG {...p}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></SVG>,
+            Utensils: (p) => <SVG {...p}><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"/><path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"/><path d="m2.1 21.8 6.4-6.3"/><path d="m19 5-7 7"/></SVG>,
+            Sparkles: (p) => <SVG {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 5h4"/><path d="M3 9h4"/></SVG>,
+            Zap: (p) => <SVG {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></SVG>,
+            Clock: (p) => <SVG {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></SVG>,
+            List: (p) => <SVG {...p}><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></SVG>,
+            Alert: (p) => <SVG {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></SVG>,
+            Users: (p) => <SVG {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></SVG>,
+            Brain: (p) => <SVG {...p}><path d="M21 8.8c.5.3 1 .9 1 1.6 0 1.2-1.2 2.3-2.7 2.3-1.1 0-2.1-.6-2.5-1.5"/><path d="M17.5 16.1c.3.9 1.1 1.5 2 1.5 1.5 0 2.7-1.1 2.7-2.6 0-.7-.3-1.3-.8-1.7"/><path d="M16 12h.01"/><path d="M8 12h.01"/><path d="M12 16h.01"/><path d="M12 8h.01"/><path d="M3 8.8c-.5.3-1 .9-1 1.6 0 1.2 1.2 2.3 2.7 2.3 1.1 0 2.1-.6 2.5-1.5"/><path d="M6.5 16.1c-.3.9-1.1 1.5-2 1.5-1.5 0-2.7-1.1-2.7-2.6 0-.7.3-1.3.8-1.7"/><path d="M12 2a8 8 0 0 0-8 8v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1a8 8 0 0 0-8-8z"/></SVG>,
+            Cloud: (p) => <SVG {...p}><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></SVG>,
+            FileText: (p) => <SVG {...p}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></SVG>,
+            Download: (p) => <SVG {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></SVG>,
+            Refresh: (p) => <SVG {...p}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></SVG>,
+            Layout: (p) => <SVG {...p}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></SVG>,
+            X: (p) => <SVG {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></SVG>,
+            Quote: (p) => <SVG {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 12a2 2 0 0 0 2-2V8H8"/><path d="M14 12a2 2 0 0 0 2-2V8h-2"/></SVG>,
+            Trash: (p) => <SVG {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></SVG>,
+            ArrowLeft: (p) => <SVG {...p}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></SVG>,
+            Pin: (p) => <SVG {...p}><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></SVG>,
+            PinOff: (p) => <SVG {...p}><line x1="2" y1="2" x2="22" y2="22"/><line x1="12" y1="17" x2="12" y2="22"/><path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-.31-.15"/><path d="M15 9.34V6h1a2 2 0 0 0 0-4H7.89"/></SVG>,
+            Plus: (p) => <SVG {...p}><path d="M5 12h14"/><path d="M12 5v14"/></SVG>
+        };
+
+        // --- Config ---
+        const APP_ID = 'personal-assistant-app';
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyA1Yb1o-ZNALFNpA_z9srmu19Bt84vdMTg",
+            authDomain: "work-new-82d8f.firebaseapp.com",
+            projectId: "work-new-82d8f",
+            storageBucket: "work-new-82d8f.firebasestorage.app",
+            messagingSenderId: "410077962391",
+            appId: "1:410077962391:web:8f4d73500abd9e678c49d2"
+        };
+        const PRIORITIES = {
+            'urgent_important': { label: '重要且緊急', color: 'bg-red-100 text-red-800 border-red-200', icon: '🔥' },
+            'not_urgent_important': { label: '重要不緊急', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: '⭐' },
+            'urgent_not_important': { label: '緊急不重要', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: '⚡' },
+            'not_urgent_not_important': { label: '不急不重要', color: 'bg-gray-100 text-gray-600 border-gray-200', icon: '☕' }
+        };
+        const DEFAULT_CATEGORIES = ['工作-個案', '工作-主責', '工作-行政', '個人-學習', '個人-接案'];
+        const DEFAULT_AREA_COLORS = {'高雄':'bg-red-500','澎湖':'bg-orange-500','台東':'bg-green-500','屏東':'bg-yellow-500','就業通':'bg-blue-400','訓就':'bg-purple-400','分署':'bg-slate-400'};
+        const HOLIDAYS = { '2025-01-01': '元旦', '2025-01-25': '春節', '2025-01-26': '春節', '2025-01-27': '除夕', '2025-01-28': '春節', '2025-01-29': '初二', '2025-01-30': '初三', '2025-01-31': '初四', '2025-02-01': '初五', '2025-02-28': '228', '2025-04-03': '兒童節', '2025-04-04': '清明節', '2025-05-30': '端午連假', '2025-05-31': '端午節', '2025-10-06': '中秋節', '2025-10-10': '國慶日', '2026-01-01': '元旦', '2026-02-16': '除夕', '2026-02-17': '春節', '2026-02-18': '初二', '2026-02-19': '初三', '2026-02-20': '初四', '2026-02-21': '初五', '2026-02-28': '228', '2026-04-03': '兒童節(補)', '2026-04-04': '兒童節', '2026-04-05': '清明節', '2026-04-06': '清明補假', '2026-06-19': '端午節', '2026-09-25': '中秋節', '2026-10-10': '國慶日' };
+
+        const formatDate = (date) => { const d = new Date(date); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+        const getTimeSlot = () => { const h = new Date().getHours(); return h<11?'早餐':h<17?'午餐':'晚餐'; };
+        const callGemini = async (apiKey, prompt, systemInstruction) => {
+            if (!apiKey) return "API Key 未設定";
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await auth.signInWithCustomToken(__initial_auth_token);
-                } else {
-                    await auth.signInAnonymously();
-                }
-            } catch (error) {
-                console.error("Auth Error:", error);
-            }
-        }
-        initAuth();
-
-        // --- 4. UI Functions ---
-
-        lucide.createIcons();
-
-        function switchView(viewId) {
-            ['view-cover', 'view-input', 'view-meditating', 'view-result', 'view-admin', 'view-history'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.classList.add('hidden');
-            });
-            document.getElementById(viewId).classList.remove('hidden');
-            lucide.createIcons();
-            window.scrollTo(0, 0);
-        }
-
-        function enterApp() {
-            switchView('view-input');
-        }
-
-        function showHistorySearch() {
-            switchView('view-history');
-        }
-
-        // Input Handling
-        function startDivination() {
-            const questionVal = document.getElementById('question-input').value.trim();
-            const nameVal = document.getElementById('user-name').value.trim();
-            const pwdVal = document.getElementById('user-password').value.trim();
-            const genderVal = document.getElementById('user-gender').value;
-            const ageVal = document.getElementById('user-age').value;
-
-            // Name is now required for history tracking
-            if (!nameVal) {
-                alert("請輸入您的姓名或暱稱，以便日後查詢紀錄");
-                document.getElementById('user-name').focus();
-                return;
-            }
-
-            if (!questionVal) {
-                const input = document.getElementById('question-input');
-                input.classList.add('animate-shake', 'ring-2', 'ring-red-400');
-                input.focus();
-                setTimeout(() => {
-                    input.classList.remove('animate-shake', 'ring-2', 'ring-red-400');
-                }, 500);
-                return;
-            }
-
-            state.question = questionVal;
-            state.name = nameVal; 
-            state.password = pwdVal; // Store password
-            state.gender = genderVal;
-            state.age = ageVal;
-
-            state.step = 'meditating';
-            state.numbers = [null, null, null];
-            state.flipIndex = 0;
-            switchView('view-meditating');
-            renderNumbers();
-            startNumberAnimation();
-            document.getElementById('flip-hint').classList.remove('hidden');
-        }
-
-        function renderNumbers() {
-            const container = document.getElementById('numbers-container');
-            container.innerHTML = '';
-            
-            [0, 1, 2].forEach(idx => {
-                const label = idx === 0 ? '上卦' : idx === 1 ? '下卦' : '變爻';
-                const isCurrent = idx === state.flipIndex;
-                const hasValue = state.numbers[idx] !== null;
-                
-                let contentHTML = `<div class="text-stone-300 text-3xl font-serif">?</div>`;
-                let boxClass = 'book-page border border-stone-200 opacity-60';
-
-                if (hasValue) {
-                    contentHTML = `
-                        <div class="text-xs text-stone-400 mb-1">第</div>
-                        <div class="text-4xl font-bold font-serif text-stone-800">${state.numbers[idx]}</div>
-                        <div class="text-xs text-stone-400 mt-1">頁</div>
-                    `;
-                    boxClass = 'book-page border-l-4 border-l-amber-600 border-t border-r border-b border-stone-200 transform scale-100 shadow-md';
-                } else if (isCurrent) {
-                    contentHTML = `
-                         <div class="text-xs text-stone-300 mb-1">翻頁</div>
-                         <div id="anim-num-${idx}" class="text-3xl font-bold font-serif text-stone-300 blur-[1px]">...</div>
-                    `; 
-                    boxClass = 'book-page border border-amber-300 transform scale-105 shadow-xl z-10';
-                }
-
-                const html = `
-                    <div class="flex flex-col items-center gap-3">
-                        <div id="num-box-${idx}" class="w-24 h-36 rounded-sm flex flex-col items-center justify-center transition-all duration-300 ${boxClass}">
-                            ${contentHTML}
-                        </div>
-                        <span class="text-xs font-bold text-stone-500 uppercase tracking-widest bg-stone-100 px-2 py-1 rounded">${label}</span>
-                    </div>
-                `;
-                container.innerHTML += html;
-            });
-        }
-
-        function startNumberAnimation() {
-            if (state.animationInterval) clearInterval(state.animationInterval);
-            state.animationInterval = setInterval(() => {
-                if (state.flipIndex <= 2) {
-                    const el = document.getElementById(`anim-num-${state.flipIndex}`);
-                    if (el) {
-                        el.innerText = Math.floor(Math.random() * 500) + 1;
-                    }
-                }
-            }, 40);
-        }
-
-        function flipPage() {
-            const num = Math.floor(Math.random() * 500) + 1;
-            state.numbers[state.flipIndex] = num;
-            
-            if (state.flipIndex < 2) {
-                state.flipIndex++;
-                const btnText = document.getElementById('flip-btn-text');
-                const nextAction = state.flipIndex === 1 ? "第二" : "變爻";
-                btnText.innerText = `翻開${nextAction}頁`;
-                renderNumbers();
-            } else {
-                renderNumbers();
-                clearInterval(state.animationInterval);
-                const btn = document.getElementById('flip-btn');
-                btn.disabled = true;
-                btn.classList.add('opacity-50', 'cursor-not-allowed');
-                document.getElementById('flip-btn-text').innerText = "正在解讀卦象...";
-                document.getElementById('flip-hint').innerText = "天垂象，見吉凶...";
-                
-                setTimeout(() => {
-                    calculateResult();
-                }, 1500);
-            }
-        }
-
-        // --- 5. Calculation & AI Logic ---
-
-        async function calculateResult() {
-            const n1 = state.numbers[0];
-            const n2 = state.numbers[1];
-            const n3 = state.numbers[2];
-
-            const upperId = n1 % 8 === 0 ? 8 : n1 % 8;
-            const lowerId = n2 % 8 === 0 ? 8 : n2 % 8;
-            const changeLine = n3 % 6 === 0 ? 6 : n3 % 6;
-
-            const upper = TRIGRAMS[upperId];
-            const lower = TRIGRAMS[lowerId];
-            
-            const key = `${upperId}-${lowerId}`;
-            const basicInfo = HEXAGRAM_DATA_FALLBACK[key] || generateGenericInterpretation(upperId, lowerId);
-
-            document.getElementById('result-question').innerText = state.question;
-            document.getElementById('result-user-info').innerText = `${state.name} / ${state.gender} / ${state.age ? state.age + '歲' : '年齡保密'}`;
-            document.getElementById('result-hex-name').innerText = basicInfo.name;
-            document.getElementById('result-sentiment').innerText = `【${basicInfo.sentiment}】`;
-            
-            document.getElementById('upper-img').innerText = upper.image;
-            document.getElementById('upper-name').innerText = `上卦 · ${upper.name} (${upper.nature})`;
-            
-            document.getElementById('lower-img').innerText = lower.image;
-            document.getElementById('lower-name').innerText = `下卦 · ${lower.name} (${lower.nature})`;
-
-            const logHTML = `
-                <div class="flex justify-between items-center border-b border-stone-100 pb-2 text-sm">
-                    <span class="text-stone-500">第 ${n1} 頁</span>
-                    <i data-lucide="arrow-right" class="w-3 h-3 text-stone-300"></i>
-                    <span class="font-bold text-stone-700">餘 ${upperId} 為 ${upper.name}</span>
-                </div>
-                <div class="flex justify-between items-center border-b border-stone-100 pb-2 text-sm">
-                    <span class="text-stone-500">第 ${n2} 頁</span>
-                    <i data-lucide="arrow-right" class="w-3 h-3 text-stone-300"></i>
-                    <span class="font-bold text-stone-700">餘 ${lowerId} 為 ${lower.name}</span>
-                </div>
-                <div class="flex justify-between items-center text-sm">
-                    <span class="text-stone-500">第 ${n3} 頁</span>
-                    <i data-lucide="arrow-right" class="w-3 h-3 text-stone-300"></i>
-                    <span class="font-bold text-amber-700">餘 ${changeLine} 為 變爻</span>
-                </div>
-            `;
-            document.getElementById('log-container').innerHTML = logHTML;
-            document.getElementById('static-desc').innerText = basicInfo.desc;
-
-            // Show feedback section
-            document.getElementById('feedback-section').classList.remove('hidden');
-            
-            switchView('view-result');
-            lucide.createIcons();
-
-            await fetchAIInterpretation(upper, lower, changeLine, basicInfo.name);
-        }
-
-        async function fetchAIInterpretation(upper, lower, changeLine, hexName) {
-            const aiLoading = document.getElementById('ai-loading');
-            const aiContent = document.getElementById('ai-content');
-            
-            const promptText = `
-                你是一位精通易經、語氣溫柔且有智慧的命理大師。
-                求卜者資訊：姓名【${state.name}】，性別【${state.gender}】，年齡【${state.age || '未填寫'}】。
-                求卜者問：「${state.question}」。
-                翻書求得：
-                - 本卦：${hexName} (上${upper.nature}下${lower.nature})。
-                - 變爻：第 ${changeLine} 爻。
-                
-                請做以下分析，使用HTML格式 (不要Markdown code block，直接給 <p> 等標籤)：
-                1. <p><strong>【卦象意涵】</strong>簡述${upper.nature}${lower.nature}的自然意象與哲理。</p>
-                2. <p><strong>【典籍故事】</strong>引用一個與此卦象相關的歷史典故、易經故事或歷史人物經歷（例如周文王、孔子、歷史名將等），用以輔助說明此卦的意境。</p>
-                3. <p><strong>【運勢解讀】</strong>結合求卜者的年齡與性別背景，針對問題「${state.question}」直指核心判斷吉凶。</p>
-                4. <div class="bg-stone-50 p-5 rounded border-l-4 border-amber-600 mt-4 text-stone-800"><p class="font-bold text-amber-800 mb-2 text-lg">大師指引：</p><p>結合變爻含義，給予一段具體、有禪意但可執行的建議。</p></div>
-                
-                語氣請保持古風但不過於艱澀，字數約 500 字。
-            `;
-
-            try {
-                const apiKey = "AIzaSyBxhqrv0en1iI7XrfT3cjh3f2xFj2WQT7Y"; 
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                
-                const safetySettings = [
-                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
-                ];
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: promptText }] }],
-                        safetySettings: safetySettings
-                    })
-                });
-
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemInstruction }] }, generationConfig: { responseMimeType: "application/json" } }) });
                 const data = await response.json();
-                
-                let aiText = "大師正在冥想中...";
-                if (data && data.candidates && data.candidates[0].content) {
-                    aiText = data.candidates[0].content.parts[0].text;
-                } else {
-                    aiText = "<p>天機不可洩露，請參考上方卦象意涵自行體悟。</p>";
-                }
-                
-                aiText = aiText.replace(/```html/g, '').replace(/```/g, '');
+                if (data.error) throw new Error(data.error.message);
+                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            } catch (e) { console.error(e); return null; }
+        };
+        const Toast = ({ message, onClose }) => {
+            useEffect(() => { const t = setTimeout(onClose, 2000); return () => clearTimeout(t); }, [onClose]);
+            return <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-white bg-green-600 text-xs font-bold animate-in"><Icons.CheckC size={16}/>{message}</div>;
+        };
 
-                aiLoading.classList.add('hidden');
-                aiContent.innerHTML = aiText;
-                aiContent.classList.remove('hidden');
+        // --- Modules ---
+        const Dashboard = ({ user, db }) => {
+            const [urgentTodos, setUrgentTodos] = useState([]);
+            useEffect(() => {
+                if (!user || !db) return;
+                const unsub = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos')
+                    .onSnapshot((snap) => {
+                        const list = [];
+                        snap.forEach(doc => { if (!doc.data().completed) list.push(doc.data()); });
+                        setUrgentTodos(list.filter(t => t.priority === 'urgent_important').slice(0, 5));
+                    }, err => console.error("Dashboard Error:", err));
+                return () => unsub();
+            }, [user, db]);
+            return (
+                <div className="space-y-4 p-4 animate-in">
+                    <header className="flex justify-between items-center mb-4"><div><h1 className="text-2xl font-black text-gray-800">早安, {user && user.displayName ? user.displayName.split(' ')[0] : 'Boss'}</h1><p className="text-[9px] font-bold text-gray-400 tracking-widest">Personal OS v5.8</p></div><div className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">ONLINE</div></header>
+                    <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden"><div className="relative z-10"><h2 className="text-lg font-bold mb-1">今日概況</h2><p className="text-sm opacity-80">{formatDate(new Date())}</p></div><div className="absolute right-0 top-0 p-4 opacity-20"><Icons.Sparkles size={80}/></div></div>
+                    <div><h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><Icons.Zap className="text-red-500" size={18}/> 緊急任務</h3><div className="space-y-2">{urgentTodos.length > 0 ? urgentTodos.map((t, i) => (<div key={i} className="bg-white p-3 rounded-2xl border border-red-100 shadow-sm flex items-center gap-3"><div className="w-1.5 h-8 bg-red-400 rounded-full"></div><span className="text-sm font-bold text-gray-700 truncate flex-1">{t.text}</span></div>)) : <div className="text-center py-6 text-gray-400 text-xs bg-gray-50 rounded-2xl">無緊急事項</div>}</div></div>
+                </div>
+            );
+        };
 
-                saveToFirestore(hexName, aiText);
-
-            } catch (error) {
-                console.error("AI Error:", error);
-                aiLoading.innerHTML = `<p class="text-stone-400 text-center">雲端天機暫時無法連線，請參考上方卦象數理。</p>`;
-            }
-        }
-
-        async function saveToFirestore(hexName, aiResult) {
-            if (!state.user) return;
-            try {
-                const collectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('readings');
-                
-                const docRef = await collectionRef.add({
-                    userInfo: {
-                        name: state.name,
-                        gender: state.gender,
-                        age: state.age
-                    },
-                    question: state.question,
-                    numbers: state.numbers,
-                    password: state.password, // Save Password
-                    hexagram: hexName,
-                    aiAnalysis: aiResult, 
-                    rating: null,
-                    feedback: null,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                state.currentDocId = docRef.id;
-
-            } catch (e) {
-                console.error("Save Error:", e);
-            }
-        }
-
-        // --- 6. Feedback System ---
-        let currentRating = 0;
-        
-        async function rateService(val) {
-            currentRating = val;
-            document.querySelectorAll('.star-btn').forEach(btn => {
-                if(parseInt(btn.dataset.val) <= val) {
-                    btn.classList.remove('grayscale');
-                } else {
-                    btn.classList.add('grayscale');
-                }
-            });
-            document.getElementById('feedback-form').classList.remove('hidden');
-            const msg = document.getElementById('rating-saved-msg');
-            msg.style.opacity = '1';
-            setTimeout(() => { msg.style.opacity = '0'; }, 3000);
-
-            if (state.currentDocId) {
-                try {
-                    const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('readings').doc(state.currentDocId);
-                    await docRef.update({ rating: currentRating });
-                } catch(e) { console.error(e); }
-            }
-        }
-
-        async function submitFeedbackText() {
-            if (!state.currentDocId) return;
-            const text = document.getElementById('feedback-text').value;
-            try {
-                const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('readings').doc(state.currentDocId);
-                await docRef.update({ feedback: text });
-                document.getElementById('feedback-form').classList.add('hidden');
-                document.getElementById('feedback-thanks').classList.remove('hidden');
-            } catch(e) { console.error(e); }
-        }
-
-        // --- 7. Download Image ---
-        function downloadResultImage() {
-            const captureArea = document.getElementById('result-capture-area');
-            html2canvas(captureArea, {
-                scale: 2, backgroundColor: "#ffffff", useCORS: true
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = `易經解惑_${state.name}_${new Date().toISOString().slice(0,10)}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-            }).catch(err => {
-                alert("圖片生成失敗，請稍後再試");
-            });
-        }
-
-        // --- 8. History Search Logic (with Password) ---
-        async function searchHistory() {
-            const name = document.getElementById('history-search-name').value.trim();
-            const pwd = document.getElementById('history-search-pwd').value.trim();
-            const listContainer = document.getElementById('history-list');
-            const loading = document.getElementById('history-loading');
+        const CaseManager = ({ user, db, showToast }) => {
+            const [sheets, setSheets] = useState(['身障案件', '中高案件']);
+            const [activeSheet, setActiveSheet] = useState('身障案件');
+            const [rows, setRows] = useState([]);
+            const [columns, setColumns] = useState(['案主姓名', '電話', '類別', '狀態', '追蹤日', '備註']); // Default Columns
+            const [loading, setLoading] = useState(false);
+            const [hasChanges, setHasChanges] = useState(false);
             
-            if (!name) {
-                alert("請輸入姓名");
-                return;
-            }
+            // Track focused input to handle overwrite
+            const [focusedCell, setFocusedCell] = useState(null); // { r: rowIndex, c: colName }
+            const [focusedHeader, setFocusedHeader] = useState(null); // index
 
-            listContainer.innerHTML = '';
-            loading.classList.remove('hidden');
-            loadedDataCache = {}; // Reset cache
-
-            try {
-                const collectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('readings');
-                // Use Name filter + Order by time
-                const snapshot = await collectionRef.where('userInfo.name', '==', name).orderBy('timestamp', 'desc').get();
-                
-                loading.classList.add('hidden');
-                
-                // Client-side Password Filtering
-                const masterKey = 'kaiyu';
-                const validDocs = [];
-
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    // If stored pwd exists, require matching input OR master key
-                    // If no stored pwd (old records), allow access
-                    if (!data.password || data.password === pwd || pwd === masterKey) {
-                        validDocs.push({ id: doc.id, data: data });
-                    }
-                });
-
-                if (validDocs.length === 0) {
-                    listContainer.innerHTML = `<div class="text-center py-8 text-stone-400">找不到「${name}」的紀錄，或是密碼錯誤。</div>`;
-                    return;
-                }
-
-                validDocs.forEach(item => {
-                    const docId = item.id;
-                    const data = item.data;
-                    loadedDataCache[docId] = data; // Cache for modal
-
-                    // Robust Date Formatting
-                    let dateStr = "剛剛";
-                    if (data.timestamp) {
-                        try {
-                            const dateObj = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-                            if (!isNaN(dateObj.getTime())) {
-                                dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                            }
-                        } catch(e) {}
-                    }
-
-                    const card = document.createElement('div');
-                    card.className = "bg-stone-50 p-4 rounded-lg border border-stone-200 hover:shadow-md transition cursor-pointer";
-                    card.onclick = function() { openDetailModal(docId); };
-                    card.innerHTML = `
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs text-stone-400">${dateStr}</span>
-                            <span class="text-sm font-bold text-amber-700">${data.hexagram}</span>
-                        </div>
-                        <h4 class="font-bold text-stone-800 mb-2">${data.question}</h4>
-                        <div class="text-xs text-stone-500 line-clamp-2 leading-relaxed">
-                            ${data.aiAnalysis ? data.aiAnalysis.replace(/<[^>]*>/g, '').substring(0, 60) + '...' : '（無詳細分析）'}
-                        </div>
-                        <div class="mt-2 text-right">
-                            <span class="text-xs text-amber-600 font-bold border border-amber-200 px-2 py-1 rounded hover:bg-amber-50 flex inline-flex items-center gap-1 justify-end">
-                                <i data-lucide="eye" class="w-3 h-3"></i> 查看詳情
-                            </span>
-                        </div>
-                    `;
-                    listContainer.appendChild(card);
-                });
-                lucide.createIcons();
-
-            } catch (err) {
-                console.error("History Error:", err);
-                loading.classList.add('hidden');
-                
-                if (err.message && err.message.includes("requires an index")) {
-                     // Fallback for missing index
-                     try {
-                        const allSnap = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('readings').orderBy('timestamp', 'desc').limit(100).get();
-                        const validDocs = [];
-                        const masterKey = 'kaiyu';
-
-                        allSnap.forEach(doc => {
-                            const data = doc.data();
-                            if (data.userInfo?.name === name) {
-                                if (!data.password || data.password === pwd || pwd === masterKey) {
-                                    validDocs.push({ id: doc.id, data: data });
-                                }
-                            }
-                        });
-                        
-                        if (validDocs.length === 0) {
-                            listContainer.innerHTML = `<div class="text-center py-8 text-stone-400">找不到紀錄或密碼錯誤</div>`;
-                            return;
+            useEffect(() => {
+                if(!user || !db) return;
+                setLoading(true);
+                const unsub = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').doc(activeSheet)
+                    .onSnapshot(doc => {
+                        if(doc.exists) {
+                            const d = doc.data();
+                            if(d.columns) setColumns(d.columns);
+                            else setColumns(['案主姓名', '電話', '類別', '狀態', '追蹤日', '備註']);
+                            if(d.rows) setRows(d.rows);
+                            else setRows(Array(5).fill({}).map(()=>({})));
+                        } else {
+                            setColumns(['案主姓名', '電話', '類別', '狀態', '追蹤日', '備註']);
+                            setRows(Array(5).fill({}).map(()=>({})));
                         }
-                        
-                        validDocs.forEach(item => {
-                            // Same render logic...
-                            const docId = item.id;
-                            const data = item.data;
-                            loadedDataCache[docId] = data;
-                            let dateStr = "未知日期";
-                            if (data.timestamp) { try { dateStr = (data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp)).toLocaleDateString(); } catch(e){} }
-                            
-                            const card = document.createElement('div');
-                            card.className = "bg-stone-50 p-4 rounded-lg border border-stone-200 hover:shadow-md transition cursor-pointer";
-                            card.onclick = function() { openDetailModal(docId); };
-                            card.innerHTML = `
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="text-xs text-stone-400">${dateStr}</span>
-                                    <span class="text-sm font-bold text-amber-700">${data.hexagram}</span>
-                                </div>
-                                <h4 class="font-bold text-stone-800 mb-2">${data.question}</h4>
-                                <div class="mt-2 text-right">
-                                    <span class="text-xs text-amber-600 font-bold px-2 py-1 rounded border border-amber-200">查看詳情</span>
-                                </div>`;
-                            listContainer.appendChild(card);
-                        });
-                     } catch (e) {
-                         listContainer.innerHTML = `<div class="text-center py-8 text-red-400">系統繁忙，請稍後再試</div>`;
-                     }
-                } else {
-                    listContainer.innerHTML = `<div class="text-center py-8 text-red-400">查詢失敗</div>`;
-                }
-            }
-        }
+                        setLoading(false);
+                    });
+                return () => unsub();
+            }, [user, db, activeSheet]);
 
-        // --- 9. Admin Logic ---
-        function showAdminLogin() {
-            document.getElementById('admin-login-modal').classList.remove('hidden');
-        }
-        
-        function closeAdminLogin() {
-            document.getElementById('admin-login-modal').classList.add('hidden');
-            document.getElementById('admin-pwd').value = '';
-        }
-        
-        function checkAdminLogin() {
-            const pwd = document.getElementById('admin-pwd').value;
-            if (pwd === '8888') {
-                closeAdminLogin();
-                loadAdminData();
-                switchView('view-admin');
-            } else {
-                alert('密碼錯誤');
-            }
-        }
-        
-        function exitAdmin() {
-            switchView('view-cover');
-        }
+            const save = async () => {
+                if(!user) return;
+                await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').doc(activeSheet).set({ columns, rows, updatedAt: Date.now() }, { merge: true });
+                setHasChanges(false); showToast('已儲存');
+            };
 
-        async function loadAdminData() {
-            const tbody = document.getElementById('admin-table-body');
-            tbody.innerHTML = '';
-            document.getElementById('admin-loading').classList.remove('hidden');
-            loadedDataCache = {};
+            const updateCell = (rIdx, col, val) => {
+                const newRows = [...rows];
+                newRows[rIdx] = { ...newRows[rIdx], [col]: val };
+                setRows(newRows);
+                setHasChanges(true);
+            };
 
-            try {
-                const collectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('readings');
-                const querySnapshot = await collectionRef.orderBy('timestamp', 'desc').limit(50).get();
+            // Enhanced Paste for Excel data & Headers
+            const handlePaste = (e) => {
+                const text = e.clipboardData.getData('text');
+                if (!text) return;
                 
-                document.getElementById('admin-loading').classList.add('hidden');
-                
-                if (querySnapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-stone-400">尚無資料</td></tr>';
+                // 1. Handle Header Paste
+                if (focusedHeader !== null) {
+                    e.preventDefault();
+                    const lines = text.trim().split(/\r\n|\n|\r/);
+                    if (lines.length === 0) return;
+                    
+                    const newHeaders = lines[0].split('\t').map(h => h.trim().replace(/^"|"$/g, ''));
+                    const nextCols = [...columns];
+
+                    newHeaders.forEach((h, i) => {
+                        if(!h) return; 
+                        const targetIdx = focusedHeader + i;
+                        if (targetIdx < nextCols.length) nextCols[targetIdx] = h;
+                        else nextCols.push(h); // Auto expand
+                    });
+
+                    setColumns(nextCols);
+                    setHasChanges(true);
+                    showToast(`已更新 ${newHeaders.length} 個標題`);
                     return;
                 }
 
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    loadedDataCache[doc.id] = data;
+                // 2. Handle Body Paste
+                if (text.includes('\t') || text.includes('\n')) {
+                    e.preventDefault();
+                    
+                    const lines = text.trim().split(/\r\n|\n|\r/).filter(l => l.trim());
+                    if (lines.length === 0) return;
 
-                    // Robust Date
-                    let dateStr = 'N/A';
-                    if (data.timestamp) {
-                        try {
-                            const d = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-                            if(!isNaN(d.getTime())) dateStr = d.toLocaleString('zh-TW');
-                        } catch(e) {}
+                    const newRows = [...rows];
+                    
+                    // Determine start position
+                    let startRowIdx = newRows.length; // Default append
+                    let startColIdx = 0;
+
+                    if (focusedCell) {
+                        startRowIdx = focusedCell.r;
+                        startColIdx = columns.indexOf(focusedCell.c);
+                        if (startColIdx === -1) startColIdx = 0;
                     }
 
-                    const userStr = `${data.userInfo?.name || '匿名'} (${data.userInfo?.gender || '-'})`;
-                    const ratingStr = data.rating ? '⭐'.repeat(data.rating) : '<span class="text-gray-300">-</span>';
-                    
-                    const row = `
-                        <tr class="hover:bg-stone-50 transition">
-                            <td class="p-4 text-xs text-stone-500 whitespace-normal w-24">${dateStr}</td>
-                            <td class="p-4 font-bold text-stone-700">${userStr}</td>
-                            <td class="p-4"><div class="line-clamp-2 w-full max-w-xs" title="${data.question}">${data.question}</div></td>
-                            <td class="p-4 text-amber-700 font-serif font-bold">${data.hexagram || '-'}</td>
-                            <td class="p-4 text-center text-xs">${ratingStr}</td>
-                            <td class="p-4">
-                                <button onclick="openDetailModal('${doc.id}')" class="bg-white border border-stone-300 hover:bg-stone-100 text-stone-600 px-3 py-1 rounded text-xs flex items-center gap-1 transition shadow-sm">
-                                    <i data-lucide="search" class="w-3 h-3"></i> 查看
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                    tbody.innerHTML += row;
-                });
-                lucide.createIcons();
+                    lines.forEach((line, i) => {
+                        const vals = line.split('\t');
+                        const targetRowIdx = startRowIdx + i;
+                        
+                        // If appending new rows
+                        if (!newRows[targetRowIdx]) {
+                            newRows[targetRowIdx] = {};
+                        }
 
-            } catch (e) {
-                console.error(e);
-                document.getElementById('admin-loading').innerHTML = '<span class="text-red-400">載入失敗</span>';
-            }
-        }
+                        vals.forEach((val, j) => {
+                            const targetColIdx = startColIdx + j;
+                            if (targetColIdx < columns.length) {
+                                const colName = columns[targetColIdx];
+                                let cleanVal = val.replace(/^"|"$/g, '').trim();
+                                newRows[targetRowIdx][colName] = cleanVal;
+                            }
+                        });
+                    });
 
-        // --- 10. Shared Detail Modal ---
-        function openDetailModal(docId) {
-            const data = loadedDataCache[docId];
-            if (!data) return;
+                    setRows(newRows);
+                    setHasChanges(true);
+                    showToast(`已貼上 ${lines.length} 筆資料`);
+                }
+            };
 
-            // Date
-            let dateStr = '時間未記錄';
-            if (data.timestamp) {
-                try {
-                    const d = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-                    if(!isNaN(d.getTime())) dateStr = d.toLocaleString('zh-TW');
-                } catch(e){}
-            }
+            const addColumn = () => {
+                const name = prompt("輸入新欄位名稱:");
+                if(name && !columns.includes(name)) {
+                    setColumns([...columns, name]);
+                    setHasChanges(true);
+                }
+            };
+
+            const renameColumn = (idx) => {
+                const oldName = columns[idx];
+                const newName = prompt("修改欄位名稱 (清空則刪除)", oldName);
+                if (newName === null) return;
+                if (newName.trim() === "") {
+                    if(confirm(`確定刪除「${oldName}」欄位及所有資料嗎？`)) {
+                        const newCols = columns.filter((_, i) => i !== idx);
+                        const newRows = rows.map(r => { const nr={...r}; delete nr[oldName]; return nr; });
+                        setColumns(newCols); setRows(newRows); setHasChanges(true);
+                    }
+                    return;
+                }
+                if (newName !== oldName && !columns.includes(newName)) {
+                    const newCols = [...columns]; newCols[idx] = newName;
+                    const newRows = rows.map(r => { const val = r[oldName]; const nr={...r}; delete nr[oldName]; nr[newName] = val; return nr; });
+                    setColumns(newCols); setRows(newRows); setHasChanges(true);
+                }
+            };
+
+            const handleAddSheet = () => { const name = prompt("新分頁名稱:"); if(name && !sheets.includes(name)) { setSheets([...sheets, name]); setActiveSheet(name); } };
+            const downloadExcel = () => { const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(rows); XLSX.utils.book_append_sheet(wb, ws, activeSheet); XLSX.writeFile(wb, `Case_List_${activeSheet}.xlsx`); };
+
+            return (
+                <div className="h-full flex flex-col p-4 animate-in" onPaste={handlePaste}>
+                    <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.FileText size={24}/> 個案管理</h2><div className="flex gap-2">{hasChanges && <button onClick={save} className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg animate-pulse">儲存變更</button>}<button onClick={downloadExcel} className="p-2 bg-green-100 text-green-700 rounded-xl hover:bg-green-200"><Icons.Download size={18}/></button></div></div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar mb-2">{sheets.map(s => (<button key={s} onClick={()=>setActiveSheet(s)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeSheet === s ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200'}`}>{s}</button>))}<button onClick={handleAddSheet} className="px-3 py-2 rounded-xl border border-dashed border-gray-300 text-gray-400 text-xs hover:border-indigo-400">+</button></div>
+                    <div className="flex-1 bg-white rounded-[1.5rem] shadow-sm border border-gray-200 overflow-hidden flex flex-col relative">
+                        {loading ? <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 text-gray-500 text-xs gap-2"><Icons.Loader/> 讀取中...</div> : 
+                        <div className="flex-1 overflow-auto custom-scrollbar p-4">
+                            <table className="w-full text-left border-collapse min-w-[600px]">
+                                <thead>
+                                    <tr className="border-b border-gray-100">
+                                        {columns.map((c, i) => (
+                                            <th 
+                                                key={i} 
+                                                tabIndex={0} 
+                                                onFocus={() => { setFocusedHeader(i); setFocusedCell(null); }}
+                                                onDoubleClick={()=>renameColumn(i)} 
+                                                className="p-2 text-[10px] font-black text-gray-400 uppercase tracking-wider sticky top-0 bg-white z-10 cursor-pointer hover:text-indigo-500 focus:bg-indigo-50" 
+                                                title="點擊選取可貼上標題，雙擊修改"
+                                            >
+                                                {c}
+                                            </th>
+                                        ))}
+                                        <th className="w-10 sticky top-0 bg-white z-10"><button onClick={addColumn} className="p-1 hover:bg-gray-100 rounded text-indigo-500"><Icons.Plus size={14}/></button></th>
+                                    </tr>
+                                </thead>
+                                <tbody>{rows.map((row, rIdx) => (<tr key={rIdx} className="border-b border-gray-50 hover:bg-gray-50 group">{columns.map((col, cIdx) => <td key={col} className="p-1"><input className="w-full bg-transparent text-xs p-1 rounded focus:bg-indigo-50 outline-none table-input" value={row[col]||''} onChange={e=>updateCell(rIdx, col, e.target.value)} onFocus={() => { setFocusedCell({r: rIdx, c: col}); setFocusedHeader(null); }}/></td>)}<td className="p-1"><button onClick={()=>{const n=[...rows];n.splice(rIdx,1);setRows(n);setHasChanges(true);}} className="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100"><Icons.Trash size={14}/></button></td></tr>))}</tbody>
+                            </table>
+                            <button onClick={()=>setRows([...rows, {}])} className="w-full py-3 text-center text-xs text-gray-400 hover:bg-gray-50 border-t border-dashed border-gray-200">+ 新增一列</button>
+                        </div>}
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-2 text-center flex justify-center items-center gap-2">
+                         <span>💡 提示：點擊表頭 Ctrl+V 可貼上標題；點擊格子覆蓋貼上；點擊空白處新增貼上</span>
+                    </div>
+                </div>
+            );
+        };
+
+        const SchedulePlanner = ({ user, db, showToast, geminiKey }) => {
+            const [aiSchedule, setAiSchedule] = useState([]);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [urgentTodos, setUrgentTodos] = useState([]);
+            useEffect(() => { if (!user || !db) return; return db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').onSnapshot(snap => { const todos = []; snap.forEach(doc => { if(!doc.data().completed) todos.push({id: doc.id, ...doc.data()}); }); setUrgentTodos(todos); }); }, [user, db]);
+            const handleGenerate = async () => { setIsGenerating(true); const todoList = urgentTodos.length > 0 ? JSON.stringify(urgentTodos.map(t => ({ id: t.id, text: t.text }))) : "無特別待辦"; const prompt = `今天是 ${formatDate(new Date())}。工作時間 09:00-12:00, 13:00-17:00。待辦: ${todoList}。請規劃行程，回傳JSON Array: [{"time": "09:00", "task": "事項", "todoId": "ID/null", "type": "work/break"}]`; const res = await callGemini(geminiKey, prompt, "只回傳JSON Array"); if (res) { try { const jsonMatch = res.match(/\[[\s\S]*\]/); if (jsonMatch) setAiSchedule(JSON.parse(jsonMatch[0])); } catch(e) { alert("格式錯誤"); } } setIsGenerating(false); };
+            const completeTask = async (item) => { const newSchedule = aiSchedule.map(s => s === item ? { ...s, completed: !s.completed } : s); setAiSchedule(newSchedule); if (item.todoId) { await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').doc(item.todoId).update({ completed: !item.completed }); showToast(!item.completed ? "已完成" : "已取消"); } };
+            return (
+                <div className="p-4 space-y-4 animate-in"><h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.Brain size={24}/> AI 智能課表</h2>{aiSchedule.length === 0 ? (<div className="text-center p-10 bg-white rounded-[2rem] border border-gray-100 shadow-sm"><div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-3"><Icons.Sparkles className="text-indigo-500"/></div><p className="text-sm font-bold text-gray-700 mb-4">尚未安排行程</p><button onClick={handleGenerate} disabled={isGenerating} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-indigo-700 disabled:opacity-50">{isGenerating ? "規劃中..." : "一鍵生成行程"}</button></div>) : (<div className="space-y-3"><div className="flex justify-end"><button onClick={()=>setAiSchedule([])} className="text-xs text-red-400 bg-red-50 px-3 py-1 rounded-lg">重置</button></div>{aiSchedule.map((item, i) => (<div key={i} onClick={()=>completeTask(item)} className={`flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${item.type==='break'?'bg-gray-50 border-gray-100':(item.completed?'bg-green-50 border-green-200 opacity-60':'bg-white border-gray-100 shadow-sm hover:shadow-md')}`}><span className="text-xs font-mono text-gray-400 font-bold">{item.time}</span><span className={`flex-1 text-sm font-bold ${item.completed?'line-through text-gray-400':'text-gray-800'}`}>{item.task}</span>{item.completed && <Icons.CheckC className="text-green-500" size={18}/>}</div>))}</div>)}</div>
+            );
+        };
+
+        const TodoManager = ({ user, db, showToast }) => {
+            const [todos, setTodos] = useState([]); const [newTodo, setNewTodo] = useState(''); const [category, setCategory] = useState('工作-個案'); const [priority, setPriority] = useState('urgent_important'); const [categories, setCategories] = useState(DEFAULT_CATEGORIES); const [workCases, setWorkCases] = useState([]); const [selectedCase, setSelectedCase] = useState('');
+            useEffect(() => { 
+                if (!user || !db) return;
+                // Fetch cases names from ALL case sheets
+                const fetchCases = async () => {
+                    const snap = await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').get();
+                    let allNames = [];
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (d.rows && d.columns && d.columns.length > 0) {
+                            const nameCol = d.columns[0]; // First column as Name
+                            d.rows.forEach(r => { if(r[nameCol]) allNames.push(r[nameCol]); });
+                        }
+                    });
+                    setWorkCases([...new Set(allNames)]); 
+                };
+                fetchCases();
+
+                db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('settings').doc('todo_cats').get().then(doc => { if(doc.exists) setCategories(doc.data().list); }); 
+                return db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').onSnapshot(snap => { const list = []; snap.forEach(doc => list.push({id: doc.id, ...doc.data()})); setTodos(list.sort((a,b) => b.createdAt - a.createdAt)); }); 
+            }, [user, db]);
             
-            document.getElementById('detail-time').innerText = dateStr;
-            document.getElementById('detail-user').innerText = `${data.userInfo?.name || '匿名'} (${data.userInfo?.gender || '-'} / ${data.userInfo?.age || '?'}歲)`;
-            document.getElementById('detail-question').innerText = data.question;
-            document.getElementById('detail-hex-name').innerText = data.hexagram;
+            const handleAddCategory = async () => { const newCat = prompt("新分類名稱："); if (newCat && !categories.includes(newCat)) { const newList = [...categories, newCat]; setCategories(newList); setCategory(newCat); await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('settings').doc('todo_cats').set({ list: newList }, { merge: true }); }};
+            const addTodo = async () => { if (!newTodo) return; let t = newTodo; if(selectedCase) t = `[${selectedCase}] ${t}`; await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').add({ text: t, category, priority, completed: false, createdAt: Date.now() }); setNewTodo(''); showToast('已新增'); };
+            const deleteTodo = async (id) => { if(confirm("確定刪除？")) await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').doc(id).delete(); }
+            const toggleTodo = async (t) => { await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').doc(t.id).update({completed: !t.completed}); }
             
-            if (data.numbers && data.numbers.length === 3) {
-                document.getElementById('detail-hex-nums').innerText = `靈數：[${data.numbers[0]}, ${data.numbers[1]}, ${data.numbers[2]}]`;
-            } else {
-                document.getElementById('detail-hex-nums').innerText = '';
-            }
+            return (
+                <div className="p-4 space-y-4 animate-in pb-20 md:pb-0"><h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.Check size={24}/> 待辦事項</h2><div className="bg-white p-4 rounded-[2rem] shadow-sm space-y-3"><input className="w-full bg-gray-50 p-3 rounded-xl text-sm font-bold outline-none" placeholder="輸入事項..." value={newTodo} onChange={e=>setNewTodo(e.target.value)}/><div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">{workCases.length>0 && <select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none min-w-[100px]" value={selectedCase} onChange={e=>setSelectedCase(e.target.value)}><option value="">選擇個案</option>{workCases.map((c,i)=><option key={i} value={c}>{c}</option>)}</select>}<select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none" value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c} value={c}>{c}</option>)}<option value="add">+ 新增分類</option></select><select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none" value={priority} onChange={e=>setPriority(e.target.value)}><option value="urgent_important">🔥 急重</option><option value="not_urgent_important">⭐ 重</option><option value="urgent_not_important">⚡ 急</option><option value="not_urgent_not_important">☕ 閒</option></select></div><button onClick={addTodo} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700">+</button></div><div className="space-y-2">{todos.map(t => (<div key={t.id} className={`p-4 bg-white rounded-2xl shadow-sm border border-gray-50 flex gap-3 ${t.completed?'opacity-50 grayscale':''}`}><button onClick={()=>toggleTodo(t)} className={`mt-1 p-1 border-2 rounded-full ${t.completed?'bg-green-500 border-green-500 text-white':'border-gray-200'}`}><Icons.CheckC size={14}/></button><div className="flex-1 min-w-0"><div className={`text-sm font-bold ${t.completed?'line-through':''}`}>{t.text}</div><div className="flex gap-1 mt-1"><span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg">{t.category}</span><span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">{t.priority==='urgent_important'?'🔥 急':(t.priority==='not_urgent_important'?'⭐ 重':'☕')}</span></div></div><button onClick={()=>deleteTodo(t.id)} className="text-gray-300 hover:text-red-400"><Icons.Trash/></button></div>))}</div></div>
+            );
+        };
 
-            document.getElementById('detail-analysis').innerHTML = data.aiAnalysis || '<p class="text-gray-400">無詳細分析內容</p>';
+        const CalendarView = ({ user, db, showToast }) => {
+            const [events, setEvents] = useState([]); const [currentDate, setCurrentDate] = useState(new Date()); const [modalData, setModalData] = useState(null);
+            const days = useMemo(() => { const dInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate(); const first = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay(); const arr = []; for(let i=0; i<first; i++) arr.push(null); for(let i=1; i<=dInMonth; i++) arr.push(i); return arr; }, [currentDate]);
+            useEffect(() => { if (!user || !db) return; const unsub = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('calendar_events').onSnapshot((snap) => { const data = []; snap.forEach(doc => data.push({ ...doc.data(), id: doc.id })); setEvents(data); }); return () => unsub(); }, [user, db]);
             
-            const rating = data.rating ? '⭐'.repeat(data.rating) : '未評分';
-            document.getElementById('detail-rating').innerText = rating;
-            document.getElementById('detail-feedback').innerText = data.feedback || '無';
+            const EventModal = ({ event, date, onClose, onSave, onDelete }) => {
+                const [form, setForm] = useState(event || { date, timeSlot:'上午', workItem:'訪視', area:'高雄', note:'' });
+                return <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4"><div className="flex justify-between font-bold text-lg"><h3>{event?'編輯':'新增'}行程</h3><button onClick={onClose}><Icons.X/></button></div><div className="space-y-3"><div className="flex gap-2"><input type="date" className="flex-1 bg-gray-50 p-2 rounded-lg" value={form.date} onChange={e=>setForm({...form, date:e.target.value})}/><select className="flex-1 bg-gray-50 p-2 rounded-lg" value={form.timeSlot} onChange={e=>setForm({...form, timeSlot:e.target.value})}> <option>上午</option><option>下午</option></select></div><select className="w-full bg-gray-50 p-2 rounded-lg" value={form.workItem} onChange={e=>setForm({...form, workItem:e.target.value})}>{['訪視','審查會','成效'].map(i=><option key={i}>{i}</option>)}</select><div className="flex flex-wrap gap-1">{['高雄','屏東','台東'].map(a=><button key={a} onClick={()=>setForm({...form, area:a})} className={`px-2 py-1 text-xs border rounded ${form.area===a?'bg-indigo-600 text-white':''}`}>{a}</button>)}</div></div><div className="flex gap-2">{event && <button onClick={()=>onDelete(event.id)} className="p-3 bg-red-50 text-red-500 rounded-xl"><Icons.Trash/></button>}<button onClick={()=>onSave(form)} className="flex-1 bg-indigo-600 text-white font-bold py-3 rounded-xl">儲存</button></div></div></div>;
+            };
 
-            document.getElementById('detail-modal').classList.remove('hidden');
-        }
+            return (
+                <div className="p-4 space-y-4 animate-in pb-20">
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-6"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-black">{currentDate.toLocaleString('zh-TW', {year:'numeric', month:'long'})}</h2><div className="flex bg-gray-100 rounded-xl"><button onClick={()=>setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth()-1)))} className="p-2"><Icons.Layout size={16} className="rotate-180"/></button><button onClick={()=>setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth()+1)))} className="p-2"><Icons.Layout size={16}/></button></div></div><div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-gray-400 mb-2"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div><div className="grid grid-cols-7 gap-1">{days.map((d,i)=>{ const dateStr = d?`${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`:''; const isToday = formatDate(new Date()) === dateStr; const hasEvent = events.some(e=>e.date===dateStr); const holiday = HOLIDAYS[dateStr]; return <div key={i} onClick={()=>d && setModalData({date:dateStr})} className={`min-h-[50px] border rounded-xl p-1 flex flex-col items-center justify-center ${d?(isToday?'bg-yellow-400 text-white font-bold':'text-gray-600 hover:bg-gray-50'):'border-transparent'}`}>{d}{holiday && <span className="text-[8px] text-red-500 mt-1">{holiday}</span>}{hasEvent&&<div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1"></div>}</div>; })}</div></div>
+                    {modalData && <EventModal event={modalData.event} date={modalData.date} onClose={()=>setModalData(null)} onSave={async(d)=>{ if(modalData.event) await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('calendar_events').doc(modalData.event.id).update(d); else await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('calendar_events').add(d); setModalData(null); showToast('已儲存'); }} onDelete={async(id)=>{ if(confirm("刪除？")) await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('calendar_events').doc(id).delete(); setModalData(null); }}/>}
+                    <div className="space-y-2">{events.filter(e=>e.date.startsWith(formatDate(currentDate).slice(0,7))).sort((a,b)=>a.date.localeCompare(b.date)).map(ev=><div key={ev.id} onClick={()=>setModalData({event:ev})} className="bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center cursor-pointer hover:bg-gray-50"><div><div className="text-xs text-indigo-500 font-bold">{ev.date} {ev.timeSlot}</div><div className="font-bold">{ev.workItem} <span className="text-xs text-gray-400 font-normal">{ev.area}</span></div></div></div>)}</div>
+                </div>
+            );
+        };
 
-        function closeDetailModal() {
-            document.getElementById('detail-modal').classList.add('hidden');
-        }
+        const CommuteTracker = ({ user, db, showToast }) => {
+            const [mode, setMode] = useState('office'); const [direction, setDirection] = useState('to_work'); const [log, setLog] = useState({}); const today = formatDate(new Date());
+            useEffect(() => { if (!user) return; const unsub = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('commute_logs').doc(today).onSnapshot(doc => { if (doc.exists) setLog(doc.data().stages || {}); }); return () => unsub(); }, [user]);
+            const handleCheckIn = async (stageId) => { if (!user) return; const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }); try { await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('commute_logs').doc(today).set({ stages: { ...log, [stageId]: time }, mode, updatedAt: Date.now() }, { merge: true }); showToast(`打卡成功: ${time}`); } catch(e) { console.error(e); } };
+            const copyLink = (id) => { const url = `${window.location.origin}${window.location.pathname}?auto_checkin=${id}`; navigator.clipboard.writeText(url); showToast("連結已複製"); };
+            const toWorkCheckpoints = [{ id: 'home_leave', label: '離開家裡', icon: Icons.Home }, { id: 'tn_arrive', label: '抵達台南火車站', icon: Icons.Map }, { id: 'tn_leave', label: '台南火車發車', icon: Icons.Train }, { id: 'kh_arrive', label: '抵達高雄火車站', icon: Icons.Map }, { id: 'office_arrive', label: '抵達辦公室', icon: Icons.Brief }];
+            const toHomeCheckpoints = [{ id: 'office_leave', label: '離開辦公室', icon: Icons.LogOut }, { id: 'kh_return_arrive', label: '抵達高雄火車站', icon: Icons.Map }, { id: 'kh_return_leave', label: '高雄火車發車', icon: Icons.Train }, { id: 'tn_return_arrive', label: '抵達台南火車站', icon: Icons.Map }, { id: 'home_return_arrive', label: '抵達溫暖的家', icon: Icons.Home }];
+            const currentCheckpoints = direction === 'to_work' ? toWorkCheckpoints : toHomeCheckpoints;
+            return <div className="space-y-4 animate-in pb-20 md:pb-0 p-4"><div className="bg-white p-6 rounded-[2.5rem] shadow-sm space-y-6"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-indigo-900 flex items-center gap-2"><Icons.Train size={24}/> 通勤打卡</h2><div className="flex bg-gray-100 p-1 rounded-xl">{['office', 'field'].map(m => (<button key={m} onClick={()=>setMode(m)} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${mode === m ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}>{m === 'office' ? '進辦公室' : '外訪行程'}</button>))}</div></div>{mode === 'office' ? (<><div className="flex bg-indigo-50 p-1 rounded-xl mb-2"><button onClick={()=>setDirection('to_work')} className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${direction === 'to_work' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-300'}`}>去程 (上班)</button><button onClick={()=>setDirection('to_home')} className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${direction === 'to_home' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-300'}`}>回程 (下班)</button></div><div className="border-l-2 border-indigo-50 ml-3 space-y-6 py-2">{currentCheckpoints.map(cp => (<div key={cp.id} className="relative pl-6"><div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 ${log && log[cp.id] ? 'bg-indigo-500 border-indigo-500 shadow' : 'bg-white border-gray-200'}`}></div><div className="flex justify-between items-center text-sm font-bold text-gray-600"><span className="flex items-center gap-2"><cp.icon size={16}/> {cp.label}</span>{log && log[cp.id] ? <span className="font-black text-indigo-600 font-mono">{log[cp.id]}</span> : <button onClick={()=>handleCheckIn(cp.id)} className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-xl text-xs font-black active:scale-95 transition-transform">打卡</button>}</div></div>))}</div></>) : (<div className="pl-6 space-y-4"><div className="bg-orange-50 p-4 rounded-2xl border border-orange-100"><h4 className="font-black text-orange-800 text-sm mb-3">外訪模式</h4><div className="flex gap-2"><button onClick={()=>handleCheckIn('field_start')} className="flex-1 py-3 bg-orange-200 text-orange-900 rounded-xl text-xs font-black shadow-sm">外訪開始</button><button onClick={()=>handleCheckIn('field_end')} className="flex-1 py-3 bg-white text-orange-900 border border-orange-200 rounded-xl text-xs font-black shadow-sm">外訪結束</button></div></div></div>)}</div><div className="bg-slate-800 p-5 rounded-[2.5rem] shadow-lg text-white space-y-3"><h3 className="text-xs font-black flex items-center gap-2 uppercase tracking-widest text-slate-400"><Icons.Link size={14}/> 自動化連結 (Shortcuts)</h3><div className="space-y-2">{currentCheckpoints.map(cp => (<div key={cp.id} className="flex justify-between items-center bg-white/10 p-2 rounded-xl text-xs"><span className="font-bold">{cp.label}</span><button onClick={()=>copyLink(cp.id)} className="text-[10px] bg-white text-slate-900 px-2 py-1 rounded-lg font-black active:scale-95 transition-transform">{copyStatus === cp.id ? '已複製!' : '複製'}</button></div>))}</div></div></div>;
+        };
 
-        function resetApp(targetView) {
-            state.question = '';
-            state.name = '';
-            state.password = '';
-            state.age = '';
-            state.numbers = [null, null, null];
-            state.currentDocId = null;
-            currentRating = 0;
-            
-            document.getElementById('question-input').value = '';
-            document.getElementById('user-name').value = '';
-            document.getElementById('user-password').value = ''; // Reset pwd field
-            document.getElementById('user-age').value = '';
-            document.getElementById('user-gender').value = '男';
-            document.getElementById('feedback-text').value = '';
-            document.getElementById('history-search-name').value = '';
-            document.getElementById('history-search-pwd').value = '';
-            document.getElementById('history-list').innerHTML = '<div class="text-center py-10 text-stone-400 text-sm">輸入資料後開始查詢</div>';
-            
-            document.getElementById('ai-content').innerHTML = '';
-            document.getElementById('ai-content').classList.add('hidden');
-            document.getElementById('ai-loading').classList.remove('hidden');
-            document.getElementById('static-desc').innerText = '';
-            document.getElementById('feedback-section').classList.add('hidden');
-            document.getElementById('feedback-form').classList.add('hidden');
-            document.getElementById('feedback-thanks').classList.add('hidden');
-            document.querySelectorAll('.star-btn').forEach(btn => btn.classList.add('grayscale'));
-            document.getElementById('rating-saved-msg').style.opacity = '0';
+        const ExpenseTracker = ({ user, db, showToast, geminiKey }) => {
+            const [items, setItems] = useState([]); const [amount, setAmount] = useState(''); const [cat, setCat] = useState('食');
+            useEffect(() => { if (!user || !db) return; return db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('expense_items').onSnapshot(snap => { const list = []; snap.forEach(doc => list.push({id: doc.id, ...doc.data()})); setItems(list.sort((a,b)=>b.createdAt-a.createdAt)); }); }, [user, db]);
+            const add = async () => { if(!amount) return; await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('expense_items').add({amount: Number(amount), category: cat, date: formatDate(new Date()), createdAt: Date.now()}); setAmount(''); showToast('已記帳'); };
+            return <div className="p-4 space-y-4 animate-in pb-20 md:pb-0"><div className="bg-white p-5 rounded-[2rem] shadow-sm space-y-3"><h2 className="font-bold flex items-center gap-2"><Icons.Dollar size={20}/> 快速記帳</h2><div className="flex gap-2"><select className="bg-gray-50 p-2 rounded-xl text-xs font-bold border-none" value={cat} onChange={e=>setCat(e.target.value)}>{['食','衣','住','行','育','樂'].map(c=><option key={c} value={c}>{c}</option>)}</select><input type="number" className="flex-1 bg-gray-50 p-2 rounded-xl text-sm font-bold border-none" placeholder="金額" value={amount} onChange={e=>setAmount(e.target.value)}/><button onClick={add} className="bg-indigo-600 text-white px-4 rounded-xl font-bold">+</button></div></div><div className="space-y-2">{items.slice(0,5).map(i=><div key={i.id} className="flex justify-between p-3 bg-white rounded-xl shadow-sm border border-gray-50 text-sm"><span className="font-bold text-gray-600">{i.category}</span><span className="font-mono font-bold text-indigo-600">${i.amount}</span></div>)}</div></div>;
+        };
 
-            const btn = document.getElementById('flip-btn');
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            document.getElementById('flip-btn-text').innerText = "翻開第一頁";
-            document.getElementById('flip-hint').classList.add('hidden');
+        const Report = () => <div className="p-10 text-center text-gray-400">報表功能 (尚未實作)</div>;
+        const AnnualPlan = () => <div className="p-10 text-center text-gray-400">年度計畫 (尚未實作)</div>;
 
-            switchView(targetView || 'view-cover');
-        }
+        const Settings = ({ user, geminiKey, setGeminiKey, handleGoogleLogin }) => (
+            <div className="p-4 space-y-6 animate-in pb-20 md:pb-0"><h2 className="text-xl font-black text-gray-800">系統設定</h2><div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5"><h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Icons.Users size={18}/> 帳號狀態</h3><div className="text-xs text-indigo-600 mb-4">{user?.isAnonymous ? '⚠️ 訪客模式 (資料未同步)' : `✅ 已登入：${user?.email}`}</div>{(!user || user.isAnonymous) ? <button onClick={handleGoogleLogin} className="w-full bg-white text-indigo-600 py-3 rounded-xl font-bold shadow-sm border border-indigo-100">Google 登入</button> : <button onClick={()=>firebase.auth().signOut()} className="w-full bg-red-50 text-red-500 py-3 rounded-xl font-bold border border-red-100">登出</button>}</div><div className="bg-white border border-gray-200 rounded-2xl p-5"><label className="block text-xs font-bold text-gray-500 mb-2">Gemini API Key</label><input type="password" value={geminiKey} onChange={e=>{setGeminiKey(e.target.value); localStorage.setItem('gemini_key',e.target.value)}} className="w-full bg-gray-50 p-3 rounded-xl text-sm font-mono border-none outline-none"/></div></div>
+        );
 
+        // --- App ---
+        const App = () => {
+            const [tab, setTab] = useState('home');
+            const [isSidebarLocked, setIsSidebarLocked] = useState(true); 
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+            const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+            const [user, setUser] = useState(null);
+            const [db, setDb] = useState(null);
+            const [toast, setToast] = useState(null);
+            const [geminiKey, setGeminiKey] = useState(()=>localStorage.getItem('gemini_key') || 'AIzaSyC6mOZd-_wWykvfLfr3IlpSKkuvsgZv9y4');
+
+            useEffect(() => {
+                const handleResize = () => { 
+                    const mobile = window.innerWidth < 768; 
+                    setIsMobile(mobile);
+                    if (mobile) setIsSidebarLocked(false); 
+                };
+                window.addEventListener('resize', handleResize); 
+                handleResize();
+
+                if(!firebase.apps.length) firebase.initializeApp(DEFAULT_FIREBASE_CONFIG);
+                const auth = firebase.auth(); setDb(firebase.firestore());
+                auth.onAuthStateChanged(u => { setUser(u); if(!u) auth.signInAnonymously(); });
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            const handleGoogleLogin = async () => { try { await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); setToast("登入成功"); } catch(e) { alert("登入失敗: "+e.message); } };
+            const switchTab = (t) => { setTab(t); if(!isSidebarLocked) setIsSidebarOpen(false); };
+
+            const MENU_ITEMS = [
+                { id: 'home', label: '總覽', icon: Icons.Home },
+                { id: 'schedule', label: '智能課表', icon: Icons.Brain },
+                { id: 'cases', label: '個案表', icon: Icons.FileText },
+                { id: 'todo', label: '待辦事項', icon: Icons.Check },
+                { id: 'calendar', label: '行事曆', icon: Icons.Calendar },
+                { id: 'commute', label: '通勤', icon: Icons.Train },
+                { id: 'expense', label: '記帳', icon: Icons.Dollar },
+                { id: 'report', label: '分析', icon: Icons.Pie },
+                { id: 'plan', label: '年度', icon: Icons.Book },
+                { id: 'settings', label: '設定', icon: Icons.Settings },
+            ];
+
+            return (
+                <div className="flex h-screen w-full relative overflow-hidden bg-slate-50">
+                    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+
+                    {/* Left Sidebar */}
+                    <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-100 transform transition-transform duration-300 ease-in-out ${(isSidebarLocked || isSidebarOpen) ? 'translate-x-0' : '-translate-x-full'}`}>
+                        <div className="p-6 h-full flex flex-col">
+                            <div className="flex justify-between items-center mb-8 mt-2">
+                                <h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.Brief className="text-indigo-600" size={24}/> Personal OS</h2>
+                                {!isMobile && (
+                                    <button onClick={() => setIsSidebarLocked(!isSidebarLocked)} className="text-gray-400 hover:text-indigo-600">
+                                        {isSidebarLocked ? <Icons.Pin size={18}/> : <Icons.PinOff size={18}/>}
+                                    </button>
+                                )}
+                            </div>
+                            <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar pr-2">
+                                {MENU_ITEMS.map(item => (
+                                    <button key={item.id} onClick={() => switchTab(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${tab === item.id ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+                                        <item.icon size={18} /> {item.label}
+                                    </button>
+                                ))}
+                            </nav>
+                            <div className="text-[10px] text-gray-300 text-center mt-4">v5.8 Fixed</div>
+                        </div>
+                    </div>
+
+                    {/* Overlay for mobile or unlocked desktop */}
+                    {!isSidebarLocked && isSidebarOpen && <div className="fixed inset-0 bg-black/20 z-30" onClick={() => setIsSidebarOpen(false)}></div>}
+
+                    {/* Main Content */}
+                    <main className={`flex-1 h-full overflow-y-auto custom-scrollbar transition-all duration-300 ${isSidebarLocked ? 'ml-64' : 'ml-0'}`}>
+                        <div className="p-4 pt-16 md:pt-4 max-w-3xl mx-auto h-full">
+                            <ErrorBoundary>
+                                {tab === 'home' && <Dashboard user={user} db={db} />}
+                                {tab === 'schedule' && <SchedulePlanner user={user} db={db} showToast={setToast} geminiKey={geminiKey} />}
+                                {tab === 'cases' && <CaseManager user={user} db={db} showToast={setToast} />}
+                                {tab === 'todo' && <TodoManager user={user} db={db} showToast={setToast} />}
+                                {tab === 'calendar' && <CalendarView user={user} db={db} showToast={setToast} />}
+                                {tab === 'commute' && <CommuteTracker user={user} db={db} showToast={setToast} />}
+                                {tab === 'expense' && <ExpenseTracker user={user} db={db} showToast={setToast} geminiKey={geminiKey} />}
+                                {tab === 'report' && <Report user={user} db={db} />}
+                                {tab === 'plan' && <AnnualPlan user={user} db={db} showToast={setToast} />}
+                                {tab === 'settings' && <Settings user={user} geminiKey={geminiKey} setGeminiKey={setGeminiKey} handleGoogleLogin={handleGoogleLogin} />}
+                            </ErrorBoundary>
+                        </div>
+                    </main>
+
+                    {/* Toggle Button (Visible when sidebar is hidden/unlocked) */}
+                    {(!isSidebarLocked || isMobile) && (
+                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="fixed z-50 p-3 rounded-full shadow-lg transition-all duration-300 bg-white border border-gray-100 text-gray-600 hover:text-indigo-600 bottom-6 left-6">
+                            {isSidebarOpen ? <Icons.ArrowLeft size={24}/> : <Icons.Menu size={24}/>}
+                        </button>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
