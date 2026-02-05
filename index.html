@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal OS v5.8 (Excel Paste Fixed)</title>
+    <title>Personal OS v6.0 (Workflow SOP)</title>
     
     <!-- 1. 核心套件 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -25,17 +25,11 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .animate-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* 漂亮的捲軸 */
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* 表格輸入框焦點樣式 */
-        .table-input:focus { background-color: #e0e7ff; outline: 2px solid #6366f1; outline-offset: -2px; z-index: 10; position: relative; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .table-input:focus { background-color: #e0e7ff; outline: 2px solid #6366f1; z-index: 10; position: relative; border-radius: 2px; }
         th { white-space: nowrap; }
-        /* 表頭焦點 */
         th:focus { background-color: #e0e7ff; color: #4f46e5; outline: 2px solid #6366f1; outline-offset: -2px; }
     </style>
 </head>
@@ -45,7 +39,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo, Component } = React;
 
-        // --- 0. 防當機保護罩 ---
         class ErrorBoundary extends Component {
             constructor(props) { super(props); this.state = { hasError: false, error: null }; }
             static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -56,11 +49,8 @@
             }
         }
 
-        // --- 1. Icons ---
         const SVG = ({ children, className, size = 24, onClick }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick}>
-                {children}
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick}>{children}</svg>
         );
 
         const Icons = {
@@ -100,10 +90,10 @@
             ArrowLeft: (p) => <SVG {...p}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></SVG>,
             Pin: (p) => <SVG {...p}><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></SVG>,
             PinOff: (p) => <SVG {...p}><line x1="2" y1="2" x2="22" y2="22"/><line x1="12" y1="17" x2="12" y2="22"/><path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-.31-.15"/><path d="M15 9.34V6h1a2 2 0 0 0 0-4H7.89"/></SVG>,
-            Plus: (p) => <SVG {...p}><path d="M5 12h14"/><path d="M12 5v14"/></SVG>
+            Plus: (p) => <SVG {...p}><path d="M5 12h14"/><path d="M12 5v14"/></SVG>,
+            GitMerge: (p) => <SVG {...p}><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></SVG>
         };
 
-        // --- Config ---
         const APP_ID = 'personal-assistant-app';
         const DEFAULT_FIREBASE_CONFIG = {
             apiKey: "AIzaSyA1Yb1o-ZNALFNpA_z9srmu19Bt84vdMTg",
@@ -120,8 +110,8 @@
             'not_urgent_not_important': { label: '不急不重要', color: 'bg-gray-100 text-gray-600 border-gray-200', icon: '☕' }
         };
         const DEFAULT_CATEGORIES = ['工作-個案', '工作-主責', '工作-行政', '個人-學習', '個人-接案'];
-        const DEFAULT_AREA_COLORS = {'高雄':'bg-red-500','澎湖':'bg-orange-500','台東':'bg-green-500','屏東':'bg-yellow-500','就業通':'bg-blue-400','訓就':'bg-purple-400','分署':'bg-slate-400'};
         const HOLIDAYS = { '2025-01-01': '元旦', '2025-01-25': '春節', '2025-01-26': '春節', '2025-01-27': '除夕', '2025-01-28': '春節', '2025-01-29': '初二', '2025-01-30': '初三', '2025-01-31': '初四', '2025-02-01': '初五', '2025-02-28': '228', '2025-04-03': '兒童節', '2025-04-04': '清明節', '2025-05-30': '端午連假', '2025-05-31': '端午節', '2025-10-06': '中秋節', '2025-10-10': '國慶日', '2026-01-01': '元旦', '2026-02-16': '除夕', '2026-02-17': '春節', '2026-02-18': '初二', '2026-02-19': '初三', '2026-02-20': '初四', '2026-02-21': '初五', '2026-02-28': '228', '2026-04-03': '兒童節(補)', '2026-04-04': '兒童節', '2026-04-05': '清明節', '2026-04-06': '清明補假', '2026-06-19': '端午節', '2026-09-25': '中秋節', '2026-10-10': '國慶日' };
+        const DEFAULT_AREA_COLORS = {'高雄':'bg-red-500','澎湖':'bg-orange-500','台東':'bg-green-500','屏東':'bg-yellow-500','就業通':'bg-blue-400','訓就':'bg-purple-400','分署':'bg-slate-400'};
 
         const formatDate = (date) => { const d = new Date(date); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
         const getTimeSlot = () => { const h = new Date().getHours(); return h<11?'早餐':h<17?'午餐':'晚餐'; };
@@ -142,21 +132,177 @@
         // --- Modules ---
         const Dashboard = ({ user, db }) => {
             const [urgentTodos, setUrgentTodos] = useState([]);
+            const [upcomingTodos, setUpcomingTodos] = useState([]);
+            
             useEffect(() => {
                 if (!user || !db) return;
                 const unsub = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos')
                     .onSnapshot((snap) => {
                         const list = [];
                         snap.forEach(doc => { if (!doc.data().completed) list.push(doc.data()); });
-                        setUrgentTodos(list.filter(t => t.priority === 'urgent_important').slice(0, 5));
-                    }, err => console.error("Dashboard Error:", err));
+                        setUrgentTodos(list.filter(t => t.priority === 'urgent_important').slice(0, 3));
+                        
+                        // Future tasks logic
+                        const today = new Date();
+                        const nextWeek = new Date();
+                        nextWeek.setDate(today.getDate() + 7);
+                        setUpcomingTodos(list.filter(t => {
+                            if (!t.dueDate) return false;
+                            const d = new Date(t.dueDate);
+                            return d >= today && d <= nextWeek;
+                        }).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate)).slice(0, 3));
+                    }, err => console.error(err));
                 return () => unsub();
             }, [user, db]);
+            
             return (
                 <div className="space-y-4 p-4 animate-in">
-                    <header className="flex justify-between items-center mb-4"><div><h1 className="text-2xl font-black text-gray-800">早安, {user && user.displayName ? user.displayName.split(' ')[0] : 'Boss'}</h1><p className="text-[9px] font-bold text-gray-400 tracking-widest">Personal OS v5.8</p></div><div className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">ONLINE</div></header>
+                    <header className="flex justify-between items-center mb-4"><div><h1 className="text-2xl font-black text-gray-800">早安, {user && user.displayName ? user.displayName.split(' ')[0] : 'Boss'}</h1><p className="text-[9px] font-bold text-gray-400 tracking-widest">Personal OS v6.0</p></div><div className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">ONLINE</div></header>
                     <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden"><div className="relative z-10"><h2 className="text-lg font-bold mb-1">今日概況</h2><p className="text-sm opacity-80">{formatDate(new Date())}</p></div><div className="absolute right-0 top-0 p-4 opacity-20"><Icons.Sparkles size={80}/></div></div>
-                    <div><h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2"><Icons.Zap className="text-red-500" size={18}/> 緊急任務</h3><div className="space-y-2">{urgentTodos.length > 0 ? urgentTodos.map((t, i) => (<div key={i} className="bg-white p-3 rounded-2xl border border-red-100 shadow-sm flex items-center gap-3"><div className="w-1.5 h-8 bg-red-400 rounded-full"></div><span className="text-sm font-bold text-gray-700 truncate flex-1">{t.text}</span></div>)) : <div className="text-center py-6 text-gray-400 text-xs bg-gray-50 rounded-2xl">無緊急事項</div>}</div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-red-50 p-4 rounded-3xl border border-red-100">
+                            <h3 className="font-bold text-red-800 mb-2 flex items-center gap-2"><Icons.Zap className="text-red-500" size={18}/> 緊急任務</h3>
+                            <div className="space-y-2">{urgentTodos.length > 0 ? urgentTodos.map((t, i) => (<div key={i} className="bg-white p-2 rounded-xl text-xs text-red-700 font-bold border border-red-100">{t.text}</div>)) : <div className="text-center text-xs text-red-300">無緊急事項</div>}</div>
+                        </div>
+                        <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100">
+                            <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2"><Icons.Clock className="text-blue-500" size={18}/> 即將截止 (7天內)</h3>
+                            <div className="space-y-2">{upcomingTodos.length > 0 ? upcomingTodos.map((t, i) => (<div key={i} className="bg-white p-2 rounded-xl text-xs text-blue-700 font-bold border border-blue-100 flex justify-between"><span>{t.text}</span><span className="text-blue-400">{t.dueDate}</span></div>)) : <div className="text-center text-xs text-blue-300">無近期截止</div>}</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const WorkflowManager = ({ user, db, showToast }) => {
+            const [rules, setRules] = useState([]);
+            const [columns, setColumns] = useState([]);
+            const [activeSheet, setActiveSheet] = useState('身障案件');
+            
+            // Rule Form
+            const [triggerCol, setTriggerCol] = useState('');
+            const [daysOffset, setDaysOffset] = useState(7);
+            const [taskSuffix, setTaskSuffix] = useState('');
+            const [priority, setPriority] = useState('urgent_important');
+
+            useEffect(() => {
+                if(!user || !db) return;
+                // Fetch rules
+                const unsub = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('settings').doc('workflow_rules')
+                    .onSnapshot(doc => { if(doc.exists && doc.data().list) setRules(doc.data().list); else setRules([]); });
+                // Fetch columns from active sheet to populate dropdown
+                db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').doc(activeSheet).get()
+                    .then(doc => { if(doc.exists && doc.data().columns) { setColumns(doc.data().columns); if(!triggerCol) setTriggerCol(doc.data().columns[0]); }});
+                return () => unsub();
+            }, [user, db, activeSheet]);
+
+            const addRule = async () => {
+                if(!triggerCol || !taskSuffix) return alert("請填寫完整資訊");
+                const newRule = { id: Date.now(), triggerCol, daysOffset, taskSuffix, priority, sheet: activeSheet };
+                const newList = [...rules, newRule];
+                await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('settings').doc('workflow_rules').set({ list: newList }, {merge:true});
+                setTaskSuffix(''); showToast("規則已新增");
+            };
+
+            const deleteRule = async (id) => {
+                const newList = rules.filter(r => r.id !== id);
+                await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('settings').doc('workflow_rules').set({ list: newList }, {merge:true});
+            };
+
+            const runWorkflow = async () => {
+                showToast("掃描中...");
+                const batch = db.batch();
+                let count = 0;
+                
+                // 1. Get all case sheets data
+                // Simplified: just get active sheet for now, or loop all. Let's do active for safety first.
+                const caseDoc = await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').doc(activeSheet).get();
+                if(!caseDoc.exists) return alert("無個案資料");
+                const rows = caseDoc.data().rows || [];
+                const nameCol = caseDoc.data().columns[0]; // Assume first col is name
+
+                rows.forEach(row => {
+                    const name = row[nameCol];
+                    if(!name) return;
+
+                    rules.filter(r => r.sheet === activeSheet).forEach(rule => {
+                        const dateStr = row[rule.triggerCol];
+                        if(dateStr) {
+                            // Calculate Due Date
+                            const d = new Date(dateStr);
+                            if(!isNaN(d.getTime())) {
+                                d.setDate(d.getDate() + parseInt(rule.daysOffset));
+                                const dueDate = formatDate(d);
+                                const taskName = `[${name}] ${rule.taskSuffix}`;
+                                
+                                // Check if todo already exists (client-side check roughly, ideally server side)
+                                // Since we can't easily check all todos here without fetching them all, we'll just add.
+                                // Improvement: Add a unique ID or tag to prevent duplicates?
+                                // For now, just add. User can delete.
+                                const ref = db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').doc();
+                                batch.set(ref, {
+                                    text: taskName,
+                                    priority: rule.priority,
+                                    dueDate: dueDate,
+                                    category: 'SOP自動生成',
+                                    date: formatDate(new Date()),
+                                    completed: false,
+                                    createdAt: Date.now()
+                                });
+                                count++;
+                            }
+                        }
+                    });
+                });
+
+                if(count > 0) {
+                    await batch.commit();
+                    showToast(`已生成 ${count} 個待辦事項！`);
+                } else {
+                    showToast("沒有符合條件的新任務");
+                }
+            };
+
+            return (
+                <div className="p-4 space-y-6 animate-in pb-20 md:pb-0">
+                    <h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.GitMerge size={24}/> SOP 流程自動化</h2>
+                    
+                    <div className="bg-white p-5 rounded-[2rem] shadow-sm space-y-3 border border-indigo-100">
+                        <h3 className="font-bold text-indigo-900">新增規則</h3>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                                <span className="text-xs py-2">當</span>
+                                <select className="bg-gray-50 p-2 rounded-lg text-xs font-bold flex-1" value={triggerCol} onChange={e=>setTriggerCol(e.target.value)}>{columns.map(c=><option key={c} value={c}>{c}</option>)}</select>
+                                <span className="text-xs py-2">有日期時</span>
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-xs">過</span>
+                                <input type="number" className="w-12 bg-gray-50 p-2 rounded-lg text-xs text-center" value={daysOffset} onChange={e=>setDaysOffset(e.target.value)}/>
+                                <span className="text-xs">天，新增待辦：</span>
+                            </div>
+                            <input className="w-full bg-gray-50 p-2 rounded-lg text-xs" placeholder="任務名稱 (例: 撰寫評估表)" value={taskSuffix} onChange={e=>setTaskSuffix(e.target.value)}/>
+                            <div className="flex gap-2">
+                                <select className="bg-gray-50 p-2 rounded-lg text-xs flex-1" value={priority} onChange={e=>setPriority(e.target.value)}>
+                                    {Object.entries(PRIORITIES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                                </select>
+                                <button onClick={addRule} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold">新增</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        {rules.map(r => (
+                            <div key={r.id} className="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center shadow-sm">
+                                <div className="text-xs">
+                                    <span className="font-bold text-indigo-600">[{r.triggerCol}]</span> + {r.daysOffset}天 <Icons.ArrowLeft size={12} className="inline rotate-180"/> <span className="font-bold">{r.taskSuffix}</span>
+                                </div>
+                                <button onClick={()=>deleteRule(r.id)} className="text-gray-300 hover:text-red-400"><Icons.Trash size={14}/></button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button onClick={runWorkflow} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                        <Icons.Zap size={20} className="text-yellow-300"/> 立即掃描並產生待辦
+                    </button>
                 </div>
             );
         };
@@ -169,9 +315,8 @@
             const [loading, setLoading] = useState(false);
             const [hasChanges, setHasChanges] = useState(false);
             
-            // Track focused input to handle overwrite
-            const [focusedCell, setFocusedCell] = useState(null); // { r: rowIndex, c: colName }
-            const [focusedHeader, setFocusedHeader] = useState(null); // index
+            const [focusedCell, setFocusedCell] = useState(null); 
+            const [focusedHeader, setFocusedHeader] = useState(null); 
 
             useEffect(() => {
                 if(!user || !db) return;
@@ -181,12 +326,11 @@
                         if(doc.exists) {
                             const d = doc.data();
                             if(d.columns) setColumns(d.columns);
-                            else setColumns(['案主姓名', '電話', '類別', '狀態', '追蹤日', '備註']);
                             if(d.rows) setRows(d.rows);
-                            else setRows(Array(5).fill({}).map(()=>({})));
+                            else setRows(Array(5).fill({}));
                         } else {
                             setColumns(['案主姓名', '電話', '類別', '狀態', '追蹤日', '備註']);
-                            setRows(Array(5).fill({}).map(()=>({})));
+                            setRows(Array(5).fill({}));
                         }
                         setLoading(false);
                     });
@@ -206,91 +350,53 @@
                 setHasChanges(true);
             };
 
-            // Enhanced Paste for Excel data & Headers
             const handlePaste = (e) => {
                 const text = e.clipboardData.getData('text');
                 if (!text) return;
                 
-                // 1. Handle Header Paste
+                // Header Paste
                 if (focusedHeader !== null) {
                     e.preventDefault();
                     const lines = text.trim().split(/\r\n|\n|\r/);
                     if (lines.length === 0) return;
-                    
                     const newHeaders = lines[0].split('\t').map(h => h.trim().replace(/^"|"$/g, ''));
                     const nextCols = [...columns];
-
-                    newHeaders.forEach((h, i) => {
-                        if(!h) return; 
-                        const targetIdx = focusedHeader + i;
-                        if (targetIdx < nextCols.length) nextCols[targetIdx] = h;
-                        else nextCols.push(h); // Auto expand
-                    });
-
-                    setColumns(nextCols);
-                    setHasChanges(true);
-                    showToast(`已更新 ${newHeaders.length} 個標題`);
-                    return;
+                    newHeaders.forEach((h, i) => { if(!h) return; const targetIdx = focusedHeader + i; if (targetIdx < nextCols.length) nextCols[targetIdx] = h; else nextCols.push(h); });
+                    setColumns(nextCols); setHasChanges(true); showToast(`更新標題`); return;
                 }
 
-                // 2. Handle Body Paste
+                // Body Paste
                 if (text.includes('\t') || text.includes('\n')) {
                     e.preventDefault();
-                    
                     const lines = text.trim().split(/\r\n|\n|\r/).filter(l => l.trim());
                     if (lines.length === 0) return;
-
                     const newRows = [...rows];
-                    
-                    // Determine start position
-                    let startRowIdx = newRows.length; // Default append
-                    let startColIdx = 0;
-
-                    if (focusedCell) {
-                        startRowIdx = focusedCell.r;
-                        startColIdx = columns.indexOf(focusedCell.c);
-                        if (startColIdx === -1) startColIdx = 0;
-                    }
+                    let startRowIdx = newRows.length; let startColIdx = 0;
+                    if (focusedCell) { startRowIdx = focusedCell.r; startColIdx = columns.indexOf(focusedCell.c); if (startColIdx === -1) startColIdx = 0; }
 
                     lines.forEach((line, i) => {
                         const vals = line.split('\t');
                         const targetRowIdx = startRowIdx + i;
-                        
-                        // If appending new rows
-                        if (!newRows[targetRowIdx]) {
-                            newRows[targetRowIdx] = {};
-                        }
-
+                        if (!newRows[targetRowIdx]) newRows[targetRowIdx] = {};
                         vals.forEach((val, j) => {
                             const targetColIdx = startColIdx + j;
                             if (targetColIdx < columns.length) {
                                 const colName = columns[targetColIdx];
-                                let cleanVal = val.replace(/^"|"$/g, '').trim();
-                                newRows[targetRowIdx][colName] = cleanVal;
+                                newRows[targetRowIdx][colName] = val.replace(/^"|"$/g, '').trim();
                             }
                         });
                     });
-
-                    setRows(newRows);
-                    setHasChanges(true);
-                    showToast(`已貼上 ${lines.length} 筆資料`);
+                    setRows(newRows); setHasChanges(true); showToast(`貼上資料`);
                 }
             };
 
-            const addColumn = () => {
-                const name = prompt("輸入新欄位名稱:");
-                if(name && !columns.includes(name)) {
-                    setColumns([...columns, name]);
-                    setHasChanges(true);
-                }
-            };
-
+            const addColumn = () => { const name = prompt("欄位名稱:"); if(name && !columns.includes(name)) { setColumns([...columns, name]); setHasChanges(true); }};
             const renameColumn = (idx) => {
                 const oldName = columns[idx];
-                const newName = prompt("修改欄位名稱 (清空則刪除)", oldName);
+                const newName = prompt("修改名稱 (清空刪除)", oldName);
                 if (newName === null) return;
                 if (newName.trim() === "") {
-                    if(confirm(`確定刪除「${oldName}」欄位及所有資料嗎？`)) {
+                    if(confirm("刪除此欄位？")) {
                         const newCols = columns.filter((_, i) => i !== idx);
                         const newRows = rows.map(r => { const nr={...r}; delete nr[oldName]; return nr; });
                         setColumns(newCols); setRows(newRows); setHasChanges(true);
@@ -304,7 +410,7 @@
                 }
             };
 
-            const handleAddSheet = () => { const name = prompt("新分頁名稱:"); if(name && !sheets.includes(name)) { setSheets([...sheets, name]); setActiveSheet(name); } };
+            const handleAddSheet = () => { const name = prompt("分頁名稱:"); if(name && !sheets.includes(name)) { setSheets([...sheets, name]); setActiveSheet(name); } };
             const downloadExcel = () => { const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(rows); XLSX.utils.book_append_sheet(wb, ws, activeSheet); XLSX.writeFile(wb, `Case_List_${activeSheet}.xlsx`); };
 
             return (
@@ -317,18 +423,7 @@
                             <table className="w-full text-left border-collapse min-w-[600px]">
                                 <thead>
                                     <tr className="border-b border-gray-100">
-                                        {columns.map((c, i) => (
-                                            <th 
-                                                key={i} 
-                                                tabIndex={0} 
-                                                onFocus={() => { setFocusedHeader(i); setFocusedCell(null); }}
-                                                onDoubleClick={()=>renameColumn(i)} 
-                                                className="p-2 text-[10px] font-black text-gray-400 uppercase tracking-wider sticky top-0 bg-white z-10 cursor-pointer hover:text-indigo-500 focus:bg-indigo-50" 
-                                                title="點擊選取可貼上標題，雙擊修改"
-                                            >
-                                                {c}
-                                            </th>
-                                        ))}
+                                        {columns.map((c, i) => <th key={i} tabIndex={0} onFocus={() => { setFocusedHeader(i); setFocusedCell(null); }} onDoubleClick={()=>renameColumn(i)} className="p-2 text-[10px] font-black text-gray-400 uppercase tracking-wider sticky top-0 bg-white z-10 cursor-pointer hover:text-indigo-500 focus:bg-indigo-50">{c}</th>)}
                                         <th className="w-10 sticky top-0 bg-white z-10"><button onClick={addColumn} className="p-1 hover:bg-gray-100 rounded text-indigo-500"><Icons.Plus size={14}/></button></th>
                                     </tr>
                                 </thead>
@@ -336,9 +431,6 @@
                             </table>
                             <button onClick={()=>setRows([...rows, {}])} className="w-full py-3 text-center text-xs text-gray-400 hover:bg-gray-50 border-t border-dashed border-gray-200">+ 新增一列</button>
                         </div>}
-                    </div>
-                    <div className="text-[10px] text-gray-400 mt-2 text-center flex justify-center items-center gap-2">
-                         <span>💡 提示：點擊表頭 Ctrl+V 可貼上標題；點擊格子覆蓋貼上；點擊空白處新增貼上</span>
                     </div>
                 </div>
             );
@@ -360,21 +452,12 @@
             const [todos, setTodos] = useState([]); const [newTodo, setNewTodo] = useState(''); const [category, setCategory] = useState('工作-個案'); const [priority, setPriority] = useState('urgent_important'); const [categories, setCategories] = useState(DEFAULT_CATEGORIES); const [workCases, setWorkCases] = useState([]); const [selectedCase, setSelectedCase] = useState('');
             useEffect(() => { 
                 if (!user || !db) return;
-                // Fetch cases names from ALL case sheets
-                const fetchCases = async () => {
-                    const snap = await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').get();
+                // Fetch cases
+                db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('case_sheets').get().then(snap => {
                     let allNames = [];
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        if (d.rows && d.columns && d.columns.length > 0) {
-                            const nameCol = d.columns[0]; // First column as Name
-                            d.rows.forEach(r => { if(r[nameCol]) allNames.push(r[nameCol]); });
-                        }
-                    });
-                    setWorkCases([...new Set(allNames)]); 
-                };
-                fetchCases();
-
+                    snap.forEach(doc => { const d = doc.data(); if (d.rows && d.columns.length > 0) d.rows.forEach(r => { if(r[d.columns[0]]) allNames.push(r[d.columns[0]]); }); });
+                    setWorkCases([...new Set(allNames)]);
+                });
                 db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('settings').doc('todo_cats').get().then(doc => { if(doc.exists) setCategories(doc.data().list); }); 
                 return db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').onSnapshot(snap => { const list = []; snap.forEach(doc => list.push({id: doc.id, ...doc.data()})); setTodos(list.sort((a,b) => b.createdAt - a.createdAt)); }); 
             }, [user, db]);
@@ -385,7 +468,7 @@
             const toggleTodo = async (t) => { await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.uid).collection('todos').doc(t.id).update({completed: !t.completed}); }
             
             return (
-                <div className="p-4 space-y-4 animate-in pb-20 md:pb-0"><h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.Check size={24}/> 待辦事項</h2><div className="bg-white p-4 rounded-[2rem] shadow-sm space-y-3"><input className="w-full bg-gray-50 p-3 rounded-xl text-sm font-bold outline-none" placeholder="輸入事項..." value={newTodo} onChange={e=>setNewTodo(e.target.value)}/><div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">{workCases.length>0 && <select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none min-w-[100px]" value={selectedCase} onChange={e=>setSelectedCase(e.target.value)}><option value="">選擇個案</option>{workCases.map((c,i)=><option key={i} value={c}>{c}</option>)}</select>}<select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none" value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c} value={c}>{c}</option>)}<option value="add">+ 新增分類</option></select><select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none" value={priority} onChange={e=>setPriority(e.target.value)}><option value="urgent_important">🔥 急重</option><option value="not_urgent_important">⭐ 重</option><option value="urgent_not_important">⚡ 急</option><option value="not_urgent_not_important">☕ 閒</option></select></div><button onClick={addTodo} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700">+</button></div><div className="space-y-2">{todos.map(t => (<div key={t.id} className={`p-4 bg-white rounded-2xl shadow-sm border border-gray-50 flex gap-3 ${t.completed?'opacity-50 grayscale':''}`}><button onClick={()=>toggleTodo(t)} className={`mt-1 p-1 border-2 rounded-full ${t.completed?'bg-green-500 border-green-500 text-white':'border-gray-200'}`}><Icons.CheckC size={14}/></button><div className="flex-1 min-w-0"><div className={`text-sm font-bold ${t.completed?'line-through':''}`}>{t.text}</div><div className="flex gap-1 mt-1"><span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg">{t.category}</span><span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">{t.priority==='urgent_important'?'🔥 急':(t.priority==='not_urgent_important'?'⭐ 重':'☕')}</span></div></div><button onClick={()=>deleteTodo(t.id)} className="text-gray-300 hover:text-red-400"><Icons.Trash/></button></div>))}</div></div>
+                <div className="p-4 space-y-4 animate-in pb-20 md:pb-0"><h2 className="text-xl font-black text-gray-800 flex items-center gap-2"><Icons.Check size={24}/> 待辦事項</h2><div className="bg-white p-4 rounded-[2rem] shadow-sm space-y-3"><input className="w-full bg-gray-50 p-3 rounded-xl text-sm font-bold outline-none" placeholder="輸入事項..." value={newTodo} onChange={e=>setNewTodo(e.target.value)}/><div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">{workCases.length>0 && <select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none min-w-[100px]" value={selectedCase} onChange={e=>setSelectedCase(e.target.value)}><option value="">選擇個案</option>{workCases.map((c,i)=><option key={i} value={c}>{c}</option>)}</select>}<select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none" value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c} value={c}>{c}</option>)}<option value="add">+ 新增分類</option></select><select className="bg-gray-50 p-2 rounded-lg text-xs font-bold border-none outline-none" value={priority} onChange={e=>setPriority(e.target.value)}><option value="urgent_important">🔥 急重</option><option value="not_urgent_important">⭐ 重</option><option value="urgent_not_important">⚡ 急</option><option value="not_urgent_not_important">☕ 閒</option></select></div><button onClick={addTodo} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700">+</button></div><div className="space-y-2">{todos.map(t => (<div key={t.id} className={`p-4 bg-white rounded-2xl shadow-sm border border-gray-50 flex gap-3 ${t.completed?'opacity-50 grayscale':''}`}><button onClick={()=>toggleTodo(t)} className={`mt-1 p-1 border-2 rounded-full ${t.completed?'bg-green-500 border-green-500 text-white':'border-gray-200'}`}><Icons.CheckC size={14}/></button><div className="flex-1 min-w-0"><div className={`text-sm font-bold ${t.completed?'line-through':''}`}>{t.text}</div><div className="flex gap-1 mt-1">{t.category === 'SOP自動生成' && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-lg border border-yellow-200">🤖 SOP</span>}<span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg">{t.category}</span><span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">{t.priority==='urgent_important'?'🔥 急':(t.priority==='not_urgent_important'?'⭐ 重':'☕')}</span></div></div><button onClick={()=>deleteTodo(t.id)} className="text-gray-300 hover:text-red-400"><Icons.Trash/></button></div>))}</div></div>
             );
         };
 
@@ -464,6 +547,7 @@
 
             const MENU_ITEMS = [
                 { id: 'home', label: '總覽', icon: Icons.Home },
+                { id: 'workflow', label: '流程自動化', icon: Icons.GitMerge },
                 { id: 'schedule', label: '智能課表', icon: Icons.Brain },
                 { id: 'cases', label: '個案表', icon: Icons.FileText },
                 { id: 'todo', label: '待辦事項', icon: Icons.Check },
@@ -497,7 +581,7 @@
                                     </button>
                                 ))}
                             </nav>
-                            <div className="text-[10px] text-gray-300 text-center mt-4">v5.8 Fixed</div>
+                            <div className="text-[10px] text-gray-300 text-center mt-4">v6.0 Fixed</div>
                         </div>
                     </div>
 
@@ -509,6 +593,7 @@
                         <div className="p-4 pt-16 md:pt-4 max-w-3xl mx-auto h-full">
                             <ErrorBoundary>
                                 {tab === 'home' && <Dashboard user={user} db={db} />}
+                                {tab === 'workflow' && <WorkflowManager user={user} db={db} showToast={setToast} />}
                                 {tab === 'schedule' && <SchedulePlanner user={user} db={db} showToast={setToast} geminiKey={geminiKey} />}
                                 {tab === 'cases' && <CaseManager user={user} db={db} showToast={setToast} />}
                                 {tab === 'todo' && <TodoManager user={user} db={db} showToast={setToast} />}
